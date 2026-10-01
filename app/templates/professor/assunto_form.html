@@ -1,0 +1,13 @@
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import campo %}
+{% block title %}Editar assunto{% endblock %} {% block content %}
+<div class="cartao" style="max-width: 700px">
+	<h1>Editar assunto</h1>
+	<form method="POST">
+		{{ form.hidden_tag() }}
+		{{ campo(form.nome) }}
+		{{ campo(form.descricao, rows=3) }}
+		<button type="submit" class="btn btn-primary">Salvar</button>
+		<a href="{{ url_for('professor.assuntos') }}" class="btn btn-secondary">Voltar</a>
+	</form>
+</div>
+{% endblock %}

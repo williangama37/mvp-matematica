@@ -1,0 +1,67 @@
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import status_percentual, legenda_status %}
+{% block title %}Resultados — {{ teste.titulo }}{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<div>
+		<h1>{{ teste.titulo }}</h1>
+		<div class="text-muted">{{ teste.turma.descricao if teste.turma else 'Todas as turmas' }} · {{ tentativas|length }} realização(ões)</div>
+	</div>
+	<a href="{{ url_for('professor.testes') }}" class="btn btn-secondary">Voltar</a>
+</div>
+
+<div class="cartao">
+	<h3>Alunos</h3>
+	<p class="subtitulo">{{ legenda_status() }}</p>
+	<div class="table-responsive">
+		<table class="table table-sm table-hover">
+			<thead><tr><th>Aluno</th><th>Turma</th><th>Data</th><th class="numero">Acertos</th><th>Aproveitamento</th><th></th></tr></thead>
+			<tbody>
+				{% for tentativa in tentativas %}
+				<tr>
+					<td>{{ tentativa.aluno.nome_completo }}</td>
+					<td>{{ tentativa.aluno.turma.descricao if tentativa.aluno.turma else '—' }}</td>
+					<td>{{ tentativa.finalizada_em.strftime('%d/%m/%Y %H:%M') }}</td>
+					<td class="numero">{{ tentativa.total_acertos }}/{{ tentativa.total_questoes }}</td>
+					<td>{{ status_percentual(tentativa.percentual_acerto) }}</td>
+					<td class="text-right"><a href="{{ url_for('professor.ver_tentativa', tentativa_id=tentativa.id) }}" class="btn btn-sm btn-outline-primary">Respostas</a></td>
+				</tr>
+				{% else %}
+				<tr><td colspan="6" class="text-center text-muted">Nenhum aluno realizou este teste ainda.</td></tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<h3 class="h5 mb-3">Análise por questão</h3>
+{% for questao in teste.questoes %}
+{% set contagem = namespace(total=0) %}
+{% for alternativa in questao.alternativas %}{% set contagem.total = contagem.total + escolhas.get(alternativa.id, 0) %}{% endfor %}
+{% set total = contagem.total %}
+<div class="cartao">
+	<div class="d-flex justify-content-between flex-wrap mb-2">
+		<strong>Questão {{ loop.index }}</strong>
+		<span class="selo">{{ questao.assunto.nome }}</span>
+	</div>
+	<p class="enunciado">{{ questao.enunciado }}</p>
+	<div class="table-responsive">
+		<table class="table table-sm mb-0">
+			<thead><tr><th>Alternativa</th><th>Tipo de erro / raciocínio equivocado</th><th class="numero">Escolhas</th><th style="width: 160px">Proporção</th></tr></thead>
+			<tbody>
+				{% for alternativa in questao.alternativas %}
+				{% set quantidade = escolhas.get(alternativa.id, 0) %}
+				<tr class="{{ 'table-success' if alternativa.correta }}">
+					<td>{{ alternativa.letra }}) {{ alternativa.texto }}</td>
+					<td class="small">
+						{% if alternativa.correta %}<span class="status status-bom">Correta</span>
+						{% else %}<strong>{{ alternativa.nome_tipo_erro }}:</strong> {{ alternativa.descricao_distrator }}{% endif %}
+					</td>
+					<td class="numero">{{ quantidade }}</td>
+					<td><div class="barra-proporcao" title="{{ (100 * quantidade / total)|round(1) if total else 0 }}%"><span style="width: {{ (100 * quantidade / total) if total else 0 }}%"></span></div></td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endfor %}
+{% endblock %}

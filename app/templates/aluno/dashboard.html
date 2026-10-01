@@ -1,0 +1,16 @@
+{% extends 'base.html' %} {% block title %}Meu desempenho{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<h1>Olá, {{ current_user.nome_completo.split(' ')[0] }}!</h1>
+	{% if pendentes %}
+	<a href="{{ url_for('aluno.testes') }}" class="btn btn-primary"><i class="fas fa-pencil-alt"></i> {{ pendentes }} teste(s) para fazer</a>
+	{% endif %}
+</div>
+
+{% with mostrar_distratores = false %}{% include 'compartilhado/_painel_aluno.html' %}{% endwith %}
+
+<div class="cartao">
+	<h3><i class="fas fa-lightbulb text-primary"></i> Orientações pedagógicas</h3>
+	<p class="mb-2">Com base nos seus erros, um agente de IA vai sugerir o que revisar e como estudar cada assunto.</p>
+	<a href="{{ url_for('aluno.orientacoes') }}" class="btn btn-sm btn-outline-primary">Ver orientações</a>
+</div>
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends 'base.html' %} {% block title %}Turma {{ turma.descricao }}{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<div>
+		<h1>Turma {{ turma.descricao }}</h1>
+		<div class="text-muted">Professor responsável: {{ turma.professor.nome_completo if turma.professor else '—' }}</div>
+	</div>
+	<div>
+		<a href="{{ url_for('professor.dashboard', turma_id=turma.id) }}" class="btn btn-outline-primary"><i class="fas fa-chart-line"></i> Dashboard da turma</a>
+		<a href="{{ url_for('professor.turmas') }}" class="btn btn-secondary">Voltar</a>
+	</div>
+</div>
+
+<div class="cartao">
+	<h3 class="mb-3">Adicionar aluno</h3>
+	{% if form.aluno_id.choices %}
+	<form method="POST" class="form-row">
+		{{ form.hidden_tag() }}
+		<div class="col-md-9 mb-2">{{ form.aluno_id(class="form-control") }}</div>
+		<div class="col-md-3"><button type="submit" class="btn btn-primary btn-block">Adicionar</button></div>
+	</form>
+	<small class="text-muted">Alunos que já estão em outra turma serão transferidos para esta.</small>
+	{% else %}
+	<p class="text-muted mb-0">Não há outros alunos cadastrados.</p>
+	{% endif %}
+</div>
+
+<div class="cartao">
+	<h3 class="mb-3">{{ alunos|length }} aluno(s)</h3>
+	<div class="table-responsive">
+		<table class="table table-hover">
+			<thead><tr><th>Nome</th><th>Usuário</th><th>E-mail</th><th></th></tr></thead>
+			<tbody>
+				{% for aluno in alunos %}
+				<tr>
+					<td>{{ aluno.nome_completo }}</td>
+					<td>{{ aluno.nome_usuario }}</td>
+					<td>{{ aluno.email or '—' }}</td>
+					<td class="text-right text-nowrap">
+						<a href="{{ url_for('professor.dashboard_aluno', aluno_id=aluno.id) }}" class="btn btn-sm btn-outline-primary">Dashboard</a>
+						<form action="{{ url_for('professor.remover_aluno_turma', turma_id=turma.id, aluno_id=aluno.id) }}" method="post" class="d-inline">
+							{{ form.csrf_token }}
+							<button type="submit" class="btn btn-sm btn-outline-danger">Remover da turma</button>
+						</form>
+					</td>
+				</tr>
+				{% else %}
+				<tr><td colspan="4" class="text-center text-muted">Nenhum aluno nesta turma.</td></tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endblock %}

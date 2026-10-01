@@ -1,0 +1,37 @@
+{% extends 'base.html' %} {% block title %}Testes{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<h1>Testes diagnósticos</h1>
+	<a href="{{ url_for('professor.novo_teste') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Novo teste</a>
+</div>
+
+<div class="cartao">
+	<div class="table-responsive">
+		<table class="table table-hover">
+			<thead><tr><th>Título</th><th>Turma</th><th class="numero">Questões</th><th class="numero">Realizações</th><th>Situação</th><th>Criado em</th><th></th></tr></thead>
+			<tbody>
+				{% for teste in testes %}
+				<tr>
+					<td>{{ teste.titulo }}</td>
+					<td>{{ teste.turma.descricao if teste.turma else 'Todas' }}</td>
+					<td class="numero">{{ teste.questoes|length }}</td>
+					<td class="numero">{{ teste.tentativas|length }}</td>
+					<td>{% if teste.ativo %}<span class="status status-bom">Disponível</span>{% else %}<span class="selo">Encerrado</span>{% endif %}</td>
+					<td>{{ teste.criado_em.strftime('%d/%m/%Y') }}</td>
+					<td class="text-right text-nowrap">
+						<a href="{{ url_for('professor.resultados_teste', teste_id=teste.id) }}" class="btn btn-sm btn-outline-primary">Resultados</a>
+						<a href="{{ url_for('professor.editar_teste', teste_id=teste.id) }}" class="btn btn-sm btn-warning">Editar</a>
+						<form action="{{ url_for('professor.excluir_teste', teste_id=teste.id) }}" method="post" class="d-inline"
+						      onsubmit="return confirm('Excluir o teste e TODOS os resultados dos alunos nele?')">
+							{{ form.csrf_token }}
+							<button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+						</form>
+					</td>
+				</tr>
+				{% else %}
+				<tr><td colspan="7" class="text-center text-muted">Nenhum teste criado.</td></tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endblock %}

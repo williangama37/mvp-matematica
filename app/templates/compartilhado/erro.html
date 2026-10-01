@@ -1,0 +1,8 @@
+{% extends 'base.html' if current_user.is_authenticated else 'base_acesso.html' %}
+{% block title %}Erro {{ codigo }}{% endblock %} {% block content %}
+<div class="cartao text-center">
+	<h1>Erro {{ codigo }}</h1>
+	<p>{{ mensagem }}</p>
+	<a href="{{ url_for('principal.inicio') }}" class="btn btn-primary">Voltar ao início</a>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import status_percentual %}
+{% block title %}Meus testes{% endblock %} {% block content %}
+<div class="cabecalho-pagina"><h1>Meus testes</h1></div>
+
+{% if not current_user.turma %}
+<div class="alert alert-info">Você ainda não está em uma turma. Peça ao seu professor para adicioná-lo(a) — alguns testes são específicos da turma.</div>
+{% endif %}
+
+{% for teste, tentativa in testes %}
+<div class="cartao d-flex justify-content-between align-items-center flex-wrap" style="gap: 12px">
+	<div>
+		<h3>{{ teste.titulo }}</h3>
+		<div class="text-muted small">{{ teste.questoes|length }} questões{% if teste.descricao %} · {{ teste.descricao }}{% endif %}</div>
+	</div>
+	{% if tentativa %}
+	<div class="text-nowrap">
+		{{ status_percentual(tentativa.percentual_acerto) }}
+		<a href="{{ url_for('aluno.resultado', tentativa_id=tentativa.id) }}" class="btn btn-sm btn-outline-primary ml-2">Ver resultado</a>
+	</div>
+	{% else %}
+	<a href="{{ url_for('aluno.realizar_teste', teste_id=teste.id) }}" class="btn btn-primary">Fazer teste</a>
+	{% endif %}
+</div>
+{% else %}
+<div class="cartao"><div class="vazio"><i class="fas fa-clipboard-list"></i>Nenhum teste disponível no momento.</div></div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'base.html' %} {% block title %}{{ teste.titulo }}{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<div>
+		<h1>{{ teste.titulo }}</h1>
+		{% if teste.descricao %}<div class="text-muted">{{ teste.descricao }}</div>{% endif %}
+	</div>
+</div>
+
+<div class="alert alert-info">
+	Responda com atenção: o teste só pode ser enviado <strong>uma vez</strong>. Ele serve para identificar o que você
+	já sabe e o que precisa revisar. Se não tiver certeza, escolha a alternativa que mais faz sentido para você —
+	assim o seu professor entende o seu raciocínio.
+</div>
+
+<form method="POST" onsubmit="return confirm('Enviar as respostas? Não será possível alterar depois.')">
+	{{ form.hidden_tag() }}
+	{% for questao in teste.questoes %}
+	<fieldset class="cartao">
+		<legend class="h6 font-weight-bold">Questão {{ loop.index }} de {{ teste.questoes|length }}</legend>
+		<p class="enunciado">{{ questao.enunciado }}</p>
+		{% for alternativa in questao.alternativas %}
+		<label class="opcao-resposta">
+			<input type="radio" name="questao_{{ questao.id }}" value="{{ alternativa.id }}" required />
+			<span><strong>{{ alternativa.letra }})</strong> {{ alternativa.texto }}</span>
+		</label>
+		{% endfor %}
+	</fieldset>
+	{% endfor %}
+	<button type="submit" class="btn btn-primary btn-lg">Enviar respostas</button>
+</form>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import status_percentual %}
+{% block title %}Resultado — {{ tentativa.teste.titulo }}{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<div>
+		<h1>{{ tentativa.teste.titulo }}</h1>
+		<div class="text-muted">
+			{{ tentativa.aluno.nome_completo }} · realizado em {{ tentativa.finalizada_em.strftime('%d/%m/%Y %H:%M') }}
+		</div>
+	</div>
+	{% if mostrar_distratores %}
+	<a href="{{ url_for('professor.dashboard_aluno', aluno_id=tentativa.aluno_id) }}" class="btn btn-outline-primary">
+		<i class="fas fa-chart-line"></i> Dashboard do aluno</a>
+	{% else %}
+	<a href="{{ url_for('aluno.testes') }}" class="btn btn-outline-primary">Voltar aos testes</a>
+	{% endif %}
+</div>
+
+<div class="indicadores">
+	<div class="indicador">
+		<div class="rotulo">Acertos</div>
+		<div class="valor">{{ tentativa.total_acertos }} / {{ tentativa.total_questoes }}</div>
+	</div>
+	<div class="indicador">
+		<div class="rotulo">Aproveitamento</div>
+		<div class="valor">{{ status_percentual(tentativa.percentual_acerto) }}</div>
+	</div>
+</div>
+
+{% for resposta in tentativa.respostas %}
+{% set questao = resposta.questao %}
+<div class="cartao">
+	<div class="d-flex justify-content-between flex-wrap mb-2">
+		<strong>Questão {{ loop.index }}</strong>
+		<span>
+			<span class="selo">{{ questao.assunto.nome }}</span>
+			{% if resposta.correta %}
+			<span class="status status-bom">Acertou</span>
+			{% else %}
+			<span class="status status-critico">Errou</span>
+			{% endif %}
+		</span>
+	</div>
+	<p class="enunciado">{{ questao.enunciado }}</p>
+	{% for alternativa in questao.alternativas %}
+	<div class="opcao-resposta {{ 'resposta-certa' if alternativa.correta }} {{ 'resposta-errada' if alternativa.id == resposta.alternativa_id and not alternativa.correta }}" style="cursor: default">
+		<strong>{{ alternativa.letra }})</strong>
+		<div>
+			{{ alternativa.texto }}
+			{% if alternativa.id == resposta.alternativa_id %}<span class="selo ml-1">resposta {{ 'do aluno' if mostrar_distratores else 'sua' }}</span>{% endif %}
+			{% if alternativa.correta %}<span class="selo ml-1">correta</span>{% endif %}
+			{% if mostrar_distratores and alternativa.id == resposta.alternativa_id and not alternativa.correta %}
+			<div class="small mt-1">
+				<strong>Distrator ({{ alternativa.nome_tipo_erro }}):</strong> {{ alternativa.descricao_distrator }}
+			</div>
+			{% endif %}
+		</div>
+	</div>
+	{% endfor %}
+	{% if not resposta.alternativa_id %}<p class="text-danger small mb-0">Questão deixada em branco.</p>{% endif %}
+</div>
+{% endfor %}
+{% endblock %}

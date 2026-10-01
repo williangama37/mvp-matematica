@@ -1,0 +1,123 @@
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import status_percentual, legenda_status, indicador, sem_dados %}
+{% block title %}Dashboard geral{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<h1>Dashboard geral{% if turma %} · {{ turma.descricao }}{% endif %}</h1>
+	<div class="d-flex flex-wrap" style="gap: 8px">
+		<form method="GET" action="{{ url_for('professor.dashboard') }}">
+			<select name="turma_id" class="form-control" onchange="this.form.submit()" aria-label="Filtrar por turma">
+				<option value="0">Todas as turmas</option>
+				{% for item in turmas %}
+				<option value="{{ item.id }}" {{ 'selected' if turma and turma.id == item.id }}>{{ item.descricao }}</option>
+				{% endfor %}
+			</select>
+		</form>
+		<form method="GET" action="{{ url_for('professor.escolher_aluno') }}">
+			<select name="aluno_id" class="form-control" onchange="this.form.submit()" aria-label="Abrir dashboard de um aluno">
+				<option value="">Dashboard individual…</option>
+				{% for item in dados.alunos %}
+				<option value="{{ item.aluno.id }}">{{ item.aluno.nome_completo }}</option>
+				{% endfor %}
+			</select>
+		</form>
+	</div>
+</div>
+
+<div class="indicadores">
+	{{ indicador('Alunos', dados.total_alunos) }}
+	{{ indicador('Questões ativas', dados.total_questoes) }}
+	{{ indicador('Testes', dados.total_testes) }}
+	{{ indicador('Testes realizados', dados.total_tentativas) }}
+	<div class="indicador">
+		<div class="rotulo">Média de acerto</div>
+		<div class="valor">{{ status_percentual(dados.media_acerto if dados.total_tentativas else none) }}</div>
+	</div>
+</div>
+
+<div class="grade-graficos mb-4">
+	<div class="cartao">
+		<h3>Evolução da {{ 'turma' if turma else 'média geral' }}</h3>
+		<p class="subtitulo">Percentual médio de acerto por dia de aplicação</p>
+		{% if dados.evolucao.valores %}
+		<div class="area-grafico"><canvas id="graficoEvolucao" aria-label="Evolução do percentual médio de acerto"></canvas></div>
+		{% else %}{{ sem_dados('Nenhum teste realizado ainda.') }}{% endif %}
+	</div>
+
+	<div class="cartao">
+		<h3>Acerto por assunto</h3>
+		<p class="subtitulo">Percentual de respostas corretas em cada assunto</p>
+		{% if dados.acerto_por_assunto %}
+		<div class="area-grafico"><canvas id="graficoAssuntos" aria-label="Percentual de acerto por assunto"></canvas></div>
+		{% else %}{{ sem_dados() }}{% endif %}
+	</div>
+
+	<div class="cartao">
+		<h3>Tipos de erro</h3>
+		<p class="subtitulo">Quantidade de respostas erradas por tipo de distrator</p>
+		{% if dados.erros_por_tipo %}
+		<div class="area-grafico"><canvas id="graficoErros" aria-label="Quantidade de erros por tipo"></canvas></div>
+		{% else %}{{ sem_dados('Nenhum erro registrado.') }}{% endif %}
+	</div>
+</div>
+
+<div class="cartao">
+	<h3>Distratores mais escolhidos</h3>
+	<p class="subtitulo">Os raciocínios equivocados mais frequentes — ponto de partida para as aulas de nivelamento</p>
+	{% if dados.distratores %}
+	<div class="table-responsive">
+		<table class="table table-sm">
+			<thead><tr><th>Assunto</th><th>Questão</th><th>Alternativa</th><th>Tipo de erro</th><th>Raciocínio equivocado</th><th class="numero">Escolhas</th></tr></thead>
+			<tbody>
+				{% for item in dados.distratores %}
+				<tr>
+					<td>{{ item.questao.assunto.nome }}</td>
+					<td>{{ item.questao.enunciado|truncate(70) }}</td>
+					<td>{{ item.alternativa.letra }}) {{ item.alternativa.texto|truncate(40) }}</td>
+					<td><span class="selo">{{ item.alternativa.nome_tipo_erro }}</span></td>
+					<td>{{ item.alternativa.descricao_distrator }}</td>
+					<td class="numero">{{ item.vezes }}</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+	{% else %}{{ sem_dados('Nenhum distrator escolhido ainda.') }}{% endif %}
+</div>
+
+<div class="cartao">
+	<h3>Alunos</h3>
+	<p class="subtitulo">{{ legenda_status() }}</p>
+	{% if dados.alunos %}
+	<div class="table-responsive">
+		<table class="table table-sm table-hover">
+			<thead><tr><th>Aluno</th><th>Turma</th><th class="numero">Testes</th><th>Média de acerto</th><th>Último teste</th><th></th></tr></thead>
+			<tbody>
+				{% for item in dados.alunos %}
+				<tr>
+					<td>{{ item.aluno.nome_completo }}</td>
+					<td>{{ item.aluno.turma.descricao if item.aluno.turma else '—' }}</td>
+					<td class="numero">{{ item.testes_realizados }}</td>
+					<td>{{ status_percentual(item.media_acerto) }}</td>
+					<td>{{ item.ultimo_teste.strftime('%d/%m/%Y') if item.ultimo_teste else '—' }}</td>
+					<td class="text-right"><a href="{{ url_for('professor.dashboard_aluno', aluno_id=item.aluno.id) }}" class="btn btn-sm btn-outline-primary">Dashboard</a></td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+	{% else %}{{ sem_dados('Nenhum aluno cadastrado.') }}{% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+	const evolucao = {{ dados.evolucao|tojson }};
+	const assuntos = {{ dados.acerto_por_assunto|tojson }};
+	const erros = {{ dados.erros_por_tipo|tojson }};
+	graficoLinha('graficoEvolucao', evolucao.rotulos.map(d => d.split('-').reverse().join('/')), evolucao.valores,
+		{ rotulo: 'Acerto médio', sufixo: '%', maximo: 100 });
+	graficoBarrasHorizontais('graficoAssuntos', assuntos.map(a => a.assunto), assuntos.map(a => a.percentual), {
+		sufixo: '%', maximo: 100, detalhes: assuntos.map(a => a.acertos + ' de ' + a.total + ' respostas'),
+	});
+	graficoBarrasHorizontais('graficoErros', erros.map(e => e.tipo), erros.map(e => e.quantidade), { rotulo: 'Erros' });
+</script>
+{% endblock %}

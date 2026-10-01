@@ -1,0 +1,73 @@
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import campo %}
+{% block title %}{{ titulo }}{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<h1>{{ titulo }}</h1>
+	<a href="{{ url_for('professor.testes') }}" class="btn btn-secondary">Voltar</a>
+</div>
+
+<form method="POST">
+	{{ form.hidden_tag() }}
+	<div class="cartao">
+		{{ campo(form.titulo, placeholder='Ex.: Diagnóstico inicial — 9º ano') }}
+		{{ campo(form.descricao, rows=2) }}
+		<div class="form-row">
+			<div class="col-md-6">{{ campo(form.turma_id) }}</div>
+			<div class="col-md-6 d-flex align-items-center">
+				<div class="form-check">{{ form.ativo(class="form-check-input") }} {{ form.ativo.label(class="form-check-label") }}</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="cartao">
+		<h3>Questões</h3>
+		{% if form.questoes %}
+		<p class="subtitulo">Selecione as questões ativas do banco. <span id="contadorQuestoes">0</span> selecionada(s).</p>
+		{% for erro in form.questoes.errors %}<div class="alert alert-danger py-2">{{ erro }}</div>{% endfor %}
+		{% if questoes %}
+		<input type="search" id="filtroQuestoes" class="form-control mb-2" placeholder="Filtrar por texto ou assunto…" />
+		<div class="lista-questoes-teste">
+			{% set selecionadas = form.questoes.data or [] %}
+			{% for questao in questoes %}
+			{% if loop.changed(questao.assunto_id) %}<div class="grupo-assunto">{{ questao.assunto.nome }}</div>{% endif %}
+			<label data-busca="{{ (questao.assunto.nome ~ ' ' ~ questao.enunciado)|lower }}">
+				<input type="checkbox" name="{{ form.questoes.name }}" value="{{ questao.id }}" {{ 'checked' if questao.id in selecionadas }} />
+				<span>{{ questao.enunciado|truncate(140) }} <span class="selo">{{ questao.nome_dificuldade }}</span></span>
+			</label>
+			{% endfor %}
+		</div>
+		{% else %}
+		<p class="text-muted">Nenhuma questão ativa. <a href="{{ url_for('professor.nova_questao') }}">Cadastre questões</a> antes de montar um teste.</p>
+		{% endif %}
+		{% else %}
+		<div class="alert alert-info mb-2">Este teste já foi realizado por alunos, por isso as questões não podem mais ser alteradas.</div>
+		<ol class="mb-0">
+			{% for questao in teste.questoes %}<li>{{ questao.enunciado|truncate(140) }} <span class="selo">{{ questao.assunto.nome }}</span></li>{% endfor %}
+		</ol>
+		{% endif %}
+	</div>
+
+	<button type="submit" class="btn btn-primary">Salvar teste</button>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+	const caixas = document.querySelectorAll('.lista-questoes-teste input[type=checkbox]');
+	const contador = document.getElementById('contadorQuestoes');
+	function contar() {
+		if (contador) contador.textContent = Array.from(caixas).filter((caixa) => caixa.checked).length;
+	}
+	caixas.forEach((caixa) => caixa.addEventListener('change', contar));
+	contar();
+
+	const filtro = document.getElementById('filtroQuestoes');
+	if (filtro) {
+		filtro.addEventListener('input', function () {
+			const termo = filtro.value.toLowerCase();
+			document.querySelectorAll('.lista-questoes-teste label').forEach(function (rotulo) {
+				rotulo.hidden = !rotulo.dataset.busca.includes(termo);
+			});
+		});
+	}
+</script>
+{% endblock %}

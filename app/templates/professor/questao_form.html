@@ -1,0 +1,80 @@
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import campo %}
+{% block title %}{{ titulo }}{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<h1>{{ titulo }}</h1>
+	<a href="{{ url_for('professor.questoes') }}" class="btn btn-secondary">Voltar</a>
+</div>
+
+{% if ja_respondida %}
+<div class="alert alert-warning">
+	Esta questão já foi respondida por alunos. Alterar a alternativa correta não recalcula os resultados já registrados.
+</div>
+{% endif %}
+
+<form method="POST">
+	{{ form.hidden_tag() }}
+	<div class="cartao">
+		{{ campo(form.enunciado, rows=4, placeholder='Ex.: Quanto é 3/4 + 1/2?') }}
+		<div class="form-row">
+			<div class="col-md-5">{{ campo(form.assunto_id) }}</div>
+			<div class="col-md-3">{{ campo(form.nivel_dificuldade) }}</div>
+			<div class="col-md-4">{{ campo(form.habilidade_bncc, placeholder='Ex.: EF06MA07') }}</div>
+		</div>
+		<div class="form-check">
+			{{ form.ativa(class="form-check-input") }} {{ form.ativa.label(class="form-check-label") }}
+		</div>
+	</div>
+
+	<div class="cartao">
+		<h3>Alternativas</h3>
+		<p class="subtitulo">
+			Marque a alternativa correta. Para cada alternativa incorreta (distrator), descreva o raciocínio equivocado
+			que leva o aluno a escolhê-la e classifique o tipo de erro — é isso que permite mapear onde o aluno errou.
+		</p>
+		{% for erro in (form.alternativa_correta.errors|list) + (form.alternativas.errors|select('string')|list) %}
+		<div class="alert alert-danger py-2">{{ erro }}</div>
+		{% endfor %}
+
+		{% set opcoes_correta = form.alternativa_correta|list %}
+		{% for alternativa in form.alternativas %}
+		{% set letra = letras[loop.index0] %}
+		<div class="alternativa-bloco" data-alternativa="{{ letra }}">
+			<div class="d-flex align-items-center mb-2">
+				<span class="letra">{{ letra }})</span>
+				<div class="form-check ml-auto">
+					{{ opcoes_correta[loop.index0](class="form-check-input seletor-correta") }}
+					<label class="form-check-label" for="{{ opcoes_correta[loop.index0].id }}">Alternativa correta</label>
+				</div>
+			</div>
+			{{ alternativa.texto(class="form-control mb-2" + (" is-invalid" if alternativa.texto.errors else ""), placeholder="Texto da alternativa " + letra) }}
+			<div class="campos-distrator form-row">
+				<div class="col-md-8">
+					{{ alternativa.descricao_distrator(class="form-control", rows=2, placeholder="Raciocínio que leva a este erro. Ex.: somou numeradores e denominadores (3+1)/(4+2).") }}
+				</div>
+				<div class="col-md-4">{{ alternativa.tipo_erro(class="form-control", **{'aria-label': 'Tipo de erro'}) }}</div>
+			</div>
+		</div>
+		{% endfor %}
+	</div>
+
+	<button type="submit" class="btn btn-primary">Salvar questão</button>
+	{% if titulo == 'Nova questão' %}
+	<button type="submit" name="salvar_e_nova" value="1" class="btn btn-outline-primary">Salvar e cadastrar outra</button>
+	{% endif %}
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+	// Na alternativa correta não há distrator: esconde os campos e destaca o bloco.
+	function atualizarAlternativas() {
+		document.querySelectorAll('.alternativa-bloco').forEach(function (bloco) {
+			const correta = bloco.querySelector('.seletor-correta').checked;
+			bloco.classList.toggle('correta', correta);
+			bloco.querySelector('.campos-distrator').hidden = correta;
+		});
+	}
+	document.querySelectorAll('.seletor-correta').forEach((radio) => radio.addEventListener('change', atualizarAlternativas));
+	atualizarAlternativas();
+</script>
+{% endblock %}

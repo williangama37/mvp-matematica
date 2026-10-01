@@ -1,0 +1,51 @@
+{% extends 'base.html' %} {% block title %}Usuários{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<h1>Usuários</h1>
+	<form method="GET">
+		<select name="perfil" class="form-control" onchange="this.form.submit()" aria-label="Filtrar por perfil">
+			<option value="">Todos os perfis</option>
+			{% for chave, nome in perfis.items() %}
+			<option value="{{ chave }}" {{ 'selected' if chave == perfil_filtro }}>{{ nome }}</option>
+			{% endfor %}
+		</select>
+	</form>
+</div>
+
+<div class="cartao">
+	<h3 class="mb-3">{{ usuarios|length }} usuário(s)</h3>
+	<div class="table-responsive">
+		<table class="table table-hover">
+			<thead><tr><th>Nome</th><th>Usuário</th><th>E-mail</th><th>Perfil</th><th>Turma</th><th>Último acesso</th><th></th></tr></thead>
+			<tbody>
+				{% for usuario in usuarios %}
+				<tr>
+					<td>{{ usuario.nome_completo }}</td>
+					<td>{{ usuario.nome_usuario }}</td>
+					<td>{{ usuario.email or '—' }}</td>
+					<td><span class="selo">{{ usuario.nome_perfil }}</span></td>
+					<td>{{ usuario.turma.descricao if usuario.turma else '—' }}</td>
+					<td>{{ usuario.ultimo_acesso.strftime('%d/%m/%Y %H:%M') if usuario.ultimo_acesso else 'Nunca' }}</td>
+					<td class="text-right text-nowrap">
+						{% if usuario.eh_aluno %}
+						<form action="{{ url_for('admin.promover_professor', usuario_id=usuario.id) }}" method="post" class="d-inline"
+						      onsubmit="return confirm('Transformar este aluno em Professor?')">
+							{{ form.csrf_token }}
+							<button type="submit" class="btn btn-sm btn-success"><i class="fas fa-chalkboard-teacher"></i> Tornar professor</button>
+						</form>
+						{% endif %}
+						<a href="{{ url_for('admin.editar_usuario', usuario_id=usuario.id) }}" class="btn btn-sm btn-warning">Editar</a>
+						{% if usuario.id != current_user.id %}
+						<form action="{{ url_for('admin.excluir_usuario', usuario_id=usuario.id) }}" method="post" class="d-inline"
+						      onsubmit="return confirm('Excluir este usuário e todos os seus resultados?')">
+							{{ form.csrf_token }}
+							<button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+						</form>
+						{% endif %}
+					</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endblock %}

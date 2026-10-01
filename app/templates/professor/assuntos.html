@@ -1,0 +1,42 @@
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import campo %}
+{% block title %}Assuntos{% endblock %} {% block content %}
+<div class="cabecalho-pagina"><h1>Assuntos</h1></div>
+
+<div class="cartao">
+	<h3 class="mb-3">Novo assunto</h3>
+	<form method="POST">
+		{{ form.hidden_tag() }}
+		<div class="form-row">
+			<div class="col-md-4">{{ campo(form.nome, placeholder='Ex.: Equações do 1º grau') }}</div>
+			<div class="col-md-6">{{ campo(form.descricao, rows=1) }}</div>
+			<div class="col-md-2 d-flex align-items-end"><button type="submit" class="btn btn-primary btn-block mb-3">Cadastrar</button></div>
+		</div>
+	</form>
+</div>
+
+<div class="cartao">
+	<h3 class="mb-3">{{ assuntos|length }} assunto(s)</h3>
+	<div class="table-responsive">
+		<table class="table table-hover">
+			<thead><tr><th>Assunto</th><th>Descrição</th><th class="numero">Questões</th><th></th></tr></thead>
+			<tbody>
+				{% for assunto in assuntos %}
+				<tr>
+					<td>{{ assunto.nome }}</td>
+					<td class="text-muted">{{ assunto.descricao or '' }}</td>
+					<td class="numero"><a href="{{ url_for('professor.questoes', assunto_id=assunto.id) }}">{{ assunto.questoes|length }}</a></td>
+					<td class="text-right text-nowrap">
+						<a href="{{ url_for('professor.editar_assunto', assunto_id=assunto.id) }}" class="btn btn-sm btn-warning">Editar</a>
+						<form action="{{ url_for('professor.excluir_assunto', assunto_id=assunto.id) }}" method="post" class="d-inline"
+						      onsubmit="return confirm('Excluir este assunto?')">
+							{{ form.csrf_token }}
+							<button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+						</form>
+					</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endblock %}

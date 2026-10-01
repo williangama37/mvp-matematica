@@ -1,0 +1,40 @@
+{# Classificação do percentual de acerto: cor de status sempre acompanhada de rótulo. #}
+{% macro status_percentual(percentual) -%}
+{% if percentual is none %}
+<span class="text-muted">—</span>
+{% elif percentual >= 70 %}
+<span class="status status-bom" title="Adequado">{{ percentual }}%</span>
+{% elif percentual >= 50 %}
+<span class="status status-atencao" title="Em desenvolvimento">{{ percentual }}%</span>
+{% else %}
+<span class="status status-critico" title="Crítico">{{ percentual }}%</span>
+{% endif %}
+{%- endmacro %}
+
+{% macro legenda_status() -%}
+<small class="text-muted">
+	<span class="status status-bom">≥ 70% adequado</span> &nbsp;
+	<span class="status status-atencao">50–69% em desenvolvimento</span> &nbsp;
+	<span class="status status-critico">&lt; 50% crítico</span>
+</small>
+{%- endmacro %}
+
+{% macro indicador(rotulo, valor, detalhe='') -%}
+<div class="indicador">
+	<div class="rotulo">{{ rotulo }}</div>
+	<div class="valor{{ ' valor-texto' if valor is string }}">{{ valor }}</div>
+	{% if detalhe %}<div class="detalhe">{{ detalhe }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro sem_dados(texto='Ainda não há respostas suficientes para este gráfico.') -%}
+<div class="vazio"><i class="far fa-chart-bar"></i>{{ texto }}</div>
+{%- endmacro %}
+
+{% macro campo(field, classe='form-control') -%}
+<div class="form-group">
+	{{ field.label(class="font-weight-bold") }}
+	{{ field(class=classe + (" is-invalid" if field.errors else ""), **kwargs) }}
+	{% for erro in field.errors %}<div class="invalid-feedback d-block">{{ erro }}</div>{% endfor %}
+</div>
+{%- endmacro %}

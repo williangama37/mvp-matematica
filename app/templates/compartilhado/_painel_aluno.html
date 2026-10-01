@@ -1,0 +1,124 @@
+{# Painel individual do aluno. Usado pelo próprio aluno e pelo professor (mostrar_distratores=True). #}
+{% from 'compartilhado/_macros.html' import status_percentual, legenda_status, indicador, sem_dados %}
+
+<div class="indicadores">
+	{{ indicador('Testes realizados', dados.total_tentativas) }}
+	<div class="indicador">
+		<div class="rotulo">Média de acerto</div>
+		<div class="valor">{{ status_percentual(dados.media_acerto if dados.total_tentativas else none) }}</div>
+	</div>
+	{{ indicador('Assunto mais forte', dados.assunto_mais_forte.assunto if dados.assunto_mais_forte else '—',
+	             (dados.assunto_mais_forte.percentual|string + '% de acerto') if dados.assunto_mais_forte else '') }}
+	{{ indicador('Assunto que precisa de atenção', dados.assunto_mais_fraco.assunto if dados.assunto_mais_fraco else '—',
+	             (dados.assunto_mais_fraco.percentual|string + '% de acerto') if dados.assunto_mais_fraco else '') }}
+</div>
+
+<div class="grade-graficos mb-4">
+	<div class="cartao">
+		<h3>Evolução nos testes</h3>
+		<p class="subtitulo">Percentual de acerto em cada teste, em ordem de realização</p>
+		{% if dados.evolucao.valores %}
+		<div class="area-grafico"><canvas id="graficoEvolucao" aria-label="Evolução do percentual de acerto"></canvas></div>
+		{% else %}{{ sem_dados('Nenhum teste realizado ainda.') }}{% endif %}
+	</div>
+
+	<div class="cartao">
+		<h3>Acerto por assunto</h3>
+		<p class="subtitulo">Percentual de questões corretas em cada assunto</p>
+		{% if dados.acerto_por_assunto %}
+		<div class="area-grafico"><canvas id="graficoAssuntos" aria-label="Percentual de acerto por assunto"></canvas></div>
+		{% else %}{{ sem_dados() }}{% endif %}
+	</div>
+
+	<div class="cartao">
+		<h3>Tipos de erro</h3>
+		<p class="subtitulo">Classificação dos distratores escolhidos nas questões erradas</p>
+		{% if dados.erros_por_tipo %}
+		<div class="area-grafico"><canvas id="graficoErros" aria-label="Quantidade de erros por tipo"></canvas></div>
+		{% else %}{{ sem_dados('Nenhum erro registrado.') }}{% endif %}
+	</div>
+</div>
+
+{% if dados.acerto_por_assunto %}
+<div class="cartao">
+	<h3>Desempenho por assunto</h3>
+	<p class="subtitulo">{{ legenda_status() }}</p>
+	<div class="table-responsive">
+		<table class="table table-sm">
+			<thead><tr><th>Assunto</th><th class="numero">Acertos</th><th class="numero">Questões</th><th>Aproveitamento</th></tr></thead>
+			<tbody>
+				{% for item in dados.acerto_por_assunto %}
+				<tr>
+					<td>{{ item.assunto }}</td>
+					<td class="numero">{{ item.acertos }}</td>
+					<td class="numero">{{ item.total }}</td>
+					<td>{{ status_percentual(item.percentual) }}</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endif %}
+
+{% if mostrar_distratores and dados.distratores %}
+<div class="cartao">
+	<h3>Onde o aluno errou</h3>
+	<p class="subtitulo">Distratores escolhidos e o raciocínio equivocado que cada um revela</p>
+	<div class="table-responsive">
+		<table class="table table-sm">
+			<thead><tr><th>Assunto</th><th>Questão</th><th>Alternativa</th><th>Tipo de erro</th><th>Raciocínio equivocado</th><th class="numero">Vezes</th></tr></thead>
+			<tbody>
+				{% for item in dados.distratores %}
+				<tr>
+					<td>{{ item.questao.assunto.nome }}</td>
+					<td>{{ item.questao.enunciado|truncate(70) }}</td>
+					<td>{{ item.alternativa.letra }}) {{ item.alternativa.texto|truncate(40) }}</td>
+					<td><span class="selo">{{ item.alternativa.nome_tipo_erro }}</span></td>
+					<td>{{ item.alternativa.descricao_distrator }}</td>
+					<td class="numero">{{ item.vezes }}</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endif %}
+
+<div class="cartao">
+	<h3>Histórico de testes</h3>
+	{% if dados.tentativas %}
+	<div class="table-responsive">
+		<table class="table table-sm">
+			<thead><tr><th>Teste</th><th>Data</th><th class="numero">Acertos</th><th>Aproveitamento</th><th></th></tr></thead>
+			<tbody>
+				{% for tentativa in dados.tentativas %}
+				<tr>
+					<td>{{ tentativa.teste.titulo }}</td>
+					<td>{{ tentativa.finalizada_em.strftime('%d/%m/%Y') }}</td>
+					<td class="numero">{{ tentativa.total_acertos }}/{{ tentativa.total_questoes }}</td>
+					<td>{{ status_percentual(tentativa.percentual_acerto) }}</td>
+					<td class="text-right">
+						<a class="btn btn-sm btn-outline-primary"
+						   href="{{ url_for('professor.ver_tentativa', tentativa_id=tentativa.id) if mostrar_distratores else url_for('aluno.resultado', tentativa_id=tentativa.id) }}">Ver respostas</a>
+					</td>
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+	{% else %}{{ sem_dados('Nenhum teste realizado ainda.') }}{% endif %}
+</div>
+
+<script>
+	document.addEventListener('DOMContentLoaded', function () {
+		const evolucao = {{ dados.evolucao|tojson }};
+		const assuntos = {{ dados.acerto_por_assunto|tojson }};
+		const erros = {{ dados.erros_por_tipo|tojson }};
+		graficoLinha('graficoEvolucao', evolucao.rotulos, evolucao.valores, { rotulo: 'Acerto', sufixo: '%', maximo: 100 });
+		graficoBarrasHorizontais('graficoAssuntos', assuntos.map(a => a.assunto), assuntos.map(a => a.percentual), {
+			sufixo: '%', maximo: 100, detalhes: assuntos.map(a => a.acertos + ' de ' + a.total + ' questões'),
+		});
+		graficoBarrasHorizontais('graficoErros', erros.map(e => e.tipo), erros.map(e => e.quantidade), { rotulo: 'Erros' });
+	});
+</script>

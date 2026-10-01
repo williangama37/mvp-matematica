@@ -1,0 +1,20 @@
+{% extends 'base.html' %} {% block title %}Dashboard — {{ dados.aluno.nome_completo }}{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<div>
+		<h1>{{ dados.aluno.nome_completo }}</h1>
+		<div class="text-muted">{{ dados.aluno.turma.descricao if dados.aluno.turma else 'Sem turma' }} · @{{ dados.aluno.nome_usuario }}</div>
+	</div>
+	<div class="d-flex flex-wrap" style="gap: 8px">
+		<form method="GET" action="{{ url_for('professor.escolher_aluno') }}">
+			<select name="aluno_id" class="form-control" onchange="this.form.submit()" aria-label="Trocar de aluno">
+				{% for aluno in alunos %}
+				<option value="{{ aluno.id }}" {{ 'selected' if aluno.id == dados.aluno.id }}>{{ aluno.nome_completo }}</option>
+				{% endfor %}
+			</select>
+		</form>
+		<a href="{{ url_for('professor.dashboard', turma_id=dados.aluno.turma_id or 0) }}" class="btn btn-outline-secondary">Dashboard da turma</a>
+	</div>
+</div>
+
+{% with mostrar_distratores = true %}{% include 'compartilhado/_painel_aluno.html' %}{% endwith %}
+{% endblock %}

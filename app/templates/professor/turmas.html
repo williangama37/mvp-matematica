@@ -1,0 +1,46 @@
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import campo %}
+{% block title %}Turmas{% endblock %} {% block content %}
+<div class="cabecalho-pagina"><h1>Turmas</h1></div>
+
+<div class="cartao">
+	<h3 class="mb-3">Nova turma</h3>
+	<form method="POST" class="form-row">
+		{{ form.hidden_tag() }}
+		<div class="col-md-5">{{ campo(form.nome, placeholder='Ex.: 9º ano A') }}</div>
+		<div class="col-md-2">{{ campo(form.ano_letivo) }}</div>
+		<div class="col-md-3">{{ campo(form.professor_id) }}</div>
+		<div class="col-md-2 d-flex align-items-end"><button type="submit" class="btn btn-primary btn-block mb-3">Cadastrar</button></div>
+	</form>
+</div>
+
+<div class="cartao">
+	<h3 class="mb-3">{{ turmas|length }} turma(s)</h3>
+	<div class="table-responsive">
+		<table class="table table-hover">
+			<thead><tr><th>Turma</th><th>Ano letivo</th><th>Professor responsável</th><th class="numero">Alunos</th><th></th></tr></thead>
+			<tbody>
+				{% for turma in turmas %}
+				<tr>
+					<td><a href="{{ url_for('professor.detalhe_turma', turma_id=turma.id) }}">{{ turma.nome }}</a></td>
+					<td>{{ turma.ano_letivo }}</td>
+					<td>{{ turma.professor.nome_completo if turma.professor else '—' }}</td>
+					<td class="numero">{{ turma.alunos|length }}</td>
+					<td class="text-right text-nowrap">
+						<a href="{{ url_for('professor.dashboard', turma_id=turma.id) }}" class="btn btn-sm btn-outline-primary">Dashboard</a>
+						<a href="{{ url_for('professor.detalhe_turma', turma_id=turma.id) }}" class="btn btn-sm btn-outline-secondary">Alunos</a>
+						<a href="{{ url_for('professor.editar_turma', turma_id=turma.id) }}" class="btn btn-sm btn-warning">Editar</a>
+						<form action="{{ url_for('professor.excluir_turma', turma_id=turma.id) }}" method="post" class="d-inline"
+						      onsubmit="return confirm('Excluir esta turma? Os alunos ficarão sem turma.')">
+							{{ form.csrf_token }}
+							<button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+						</form>
+					</td>
+				</tr>
+				{% else %}
+				<tr><td colspan="5" class="text-center text-muted">Nenhuma turma cadastrada.</td></tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+{% endblock %}

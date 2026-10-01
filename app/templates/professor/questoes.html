@@ -1,0 +1,60 @@
+{% extends 'base.html' %} {% block title %}Questões{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<h1>Banco de questões</h1>
+	<div class="d-flex flex-wrap" style="gap: 8px">
+		<form method="GET">
+			<select name="assunto_id" class="form-control" onchange="this.form.submit()" aria-label="Filtrar por assunto">
+				<option value="0">Todos os assuntos</option>
+				{% for assunto in assuntos %}
+				<option value="{{ assunto.id }}" {{ 'selected' if assunto.id == assunto_id }}>{{ assunto.nome }}</option>
+				{% endfor %}
+			</select>
+		</form>
+		<a href="{{ url_for('professor.nova_questao') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Nova questão</a>
+	</div>
+</div>
+
+<p class="text-muted">{{ questoes|length }} questão(ões)</p>
+
+{% for questao in questoes %}
+<div class="cartao">
+	<div class="d-flex justify-content-between flex-wrap" style="gap: 8px">
+		<div>
+			<span class="selo">{{ questao.assunto.nome }}</span>
+			<span class="selo">{{ questao.nome_dificuldade }}</span>
+			{% if questao.habilidade_bncc %}<span class="selo">{{ questao.habilidade_bncc }}</span>{% endif %}
+			{% if not questao.ativa %}<span class="selo text-danger">Inativa</span>{% endif %}
+		</div>
+		<div class="text-nowrap">
+			<a href="{{ url_for('professor.editar_questao', questao_id=questao.id) }}" class="btn btn-sm btn-warning">Editar</a>
+			<form action="{{ url_for('professor.excluir_questao', questao_id=questao.id) }}" method="post" class="d-inline"
+			      onsubmit="return confirm('Excluir esta questão?')">
+				{{ form.csrf_token }}
+				<button type="submit" class="btn btn-sm btn-danger">Excluir</button>
+			</form>
+		</div>
+	</div>
+	<p class="enunciado mt-2 mb-2">{{ questao.enunciado }}</p>
+	<details>
+		<summary class="text-primary">Ver alternativas e distratores</summary>
+		<div class="mt-2">
+			{% for alternativa in questao.alternativas %}
+			<div class="alternativa-bloco {{ 'correta' if alternativa.correta }}">
+				<span class="letra">{{ alternativa.letra }})</span> {{ alternativa.texto }}
+				{% if alternativa.correta %}
+				<span class="status status-bom ml-2">Correta</span>
+				{% else %}
+				<div class="small mt-1 text-muted">
+					<strong>{{ alternativa.nome_tipo_erro }}:</strong> {{ alternativa.descricao_distrator }}
+				</div>
+				{% endif %}
+			</div>
+			{% endfor %}
+		</div>
+	</details>
+	<small class="text-muted">Cadastrada por {{ questao.criador.nome_completo if questao.criador else '—' }} em {{ questao.criado_em.strftime('%d/%m/%Y') }}</small>
+</div>
+{% else %}
+<div class="cartao"><div class="vazio"><i class="fas fa-list-ol"></i>Nenhuma questão cadastrada{{ ' para este assunto' if assunto_id }}.</div></div>
+{% endfor %}
+{% endblock %}
