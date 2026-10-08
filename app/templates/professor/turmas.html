@@ -6,7 +6,7 @@
 	<h3 class="mb-3">Nova turma</h3>
 	<form method="POST" class="form-row">
 		{{ form.hidden_tag() }}
-		<div class="col-md-5">{{ campo(form.nome, placeholder='Ex.: 9º ano A') }}</div>
+		<div class="col-md-5">{{ campo(form.nome, placeholder='Ex.: 2027.1') }}</div>
 		<div class="col-md-2">{{ campo(form.ano_letivo) }}</div>
 		<div class="col-md-3">{{ campo(form.professor_id) }}</div>
 		<div class="col-md-2 d-flex align-items-end"><button type="submit" class="btn btn-primary btn-block mb-3">Cadastrar</button></div>

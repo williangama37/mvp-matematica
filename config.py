@@ -1,3 +1,9 @@
+from dotenv import load_dotenv
+
+# Carrega o arquivo .env (ex.: ANTHROPIC_API_KEY, usada pelos agentes do Agno).
+load_dotenv()
+
+
 class Config:
     SECRET_KEY = 'minha_chave_secreta'
     SQLALCHEMY_DATABASE_URI = 'sqlite:///diagnostico_matematica.db'

@@ -20,6 +20,13 @@
 			<div class="col-md-3">{{ campo(form.nivel_dificuldade) }}</div>
 			<div class="col-md-4">{{ campo(form.habilidade_bncc, placeholder='Ex.: EF06MA07') }}</div>
 		</div>
+		<div class="d-flex align-items-center mb-3">
+			<button type="button" id="botao-gerar-questao" class="btn btn-outline-primary"
+				data-url="{{ url_for('professor.gerar_questao') }}">Gerar questão</button>
+			<small id="status-gerar-questao" class="ml-3 text-muted">
+				Preenche o enunciado e as alternativas a partir do assunto, da dificuldade e da habilidade. Revise antes de salvar.
+			</small>
+		</div>
 		<div class="form-check">
 			{{ form.ativa(class="form-check-input") }} {{ form.ativa.label(class="form-check-label") }}
 		</div>
@@ -76,5 +83,50 @@
 	}
 	document.querySelectorAll('.seletor-correta').forEach((radio) => radio.addEventListener('change', atualizarAlternativas));
 	atualizarAlternativas();
+
+	// Pede ao agente uma sugestão e preenche o formulário. Nada é salvo até o professor clicar em "Salvar questão".
+	const botaoGerar = document.getElementById('botao-gerar-questao');
+	const statusGerar = document.getElementById('status-gerar-questao');
+	botaoGerar.addEventListener('click', async function () {
+		const enunciado = document.getElementById('enunciado');
+		if (enunciado.value.trim() && !confirm('Substituir o enunciado e as alternativas atuais pela sugestão do agente?')) {
+			return;
+		}
+		botaoGerar.disabled = true;
+		statusGerar.className = 'ml-3 text-muted';
+		statusGerar.textContent = 'Gerando questão… isso pode levar alguns segundos.';
+		try {
+			const resposta = await fetch(botaoGerar.dataset.url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value,
+				},
+				body: JSON.stringify({
+					assunto_id: document.getElementById('assunto_id').value,
+					nivel_dificuldade: document.getElementById('nivel_dificuldade').value,
+					habilidade_bncc: document.getElementById('habilidade_bncc').value,
+				}),
+			});
+			const dados = await resposta.json().catch(() => ({}));
+			if (!resposta.ok) throw new Error(dados.erro || 'Erro ao gerar a questão.');
+
+			enunciado.value = dados.enunciado;
+			dados.alternativas.forEach(function (alternativa, indice) {
+				document.getElementById(`alternativas-${indice}-texto`).value = alternativa.texto;
+				document.getElementById(`alternativas-${indice}-descricao_distrator`).value = alternativa.descricao_distrator;
+				document.getElementById(`alternativas-${indice}-tipo_erro`).value = alternativa.tipo_erro;
+			});
+			document.querySelector(`.seletor-correta[value="${dados.alternativa_correta}"]`).checked = true;
+			atualizarAlternativas();
+			statusGerar.className = 'ml-3 text-success';
+			statusGerar.textContent = 'Questão sugerida. Revise e ajuste antes de salvar.';
+		} catch (erro) {
+			statusGerar.className = 'ml-3 text-danger';
+			statusGerar.textContent = erro.message;
+		} finally {
+			botaoGerar.disabled = false;
+		}
+	});
 </script>
 {% endblock %}

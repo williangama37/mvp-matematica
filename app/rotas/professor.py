@@ -1,13 +1,14 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
 from flask_login import current_user
 from flask_wtf import FlaskForm
 from app import db, estatisticas
 from app.models import (Usuario, Turma, Assunto, Questao, Alternativa, Teste, Tentativa, Resposta,
                         OrientacaoPedagogica, PERFIL_PROFESSOR, PERFIL_ADMINISTRADOR, PERFIL_ALUNO,
-                        LETRAS_ALTERNATIVAS, TIPO_ORIENTACAO_NIVELAMENTO)
+                        LETRAS_ALTERNATIVAS, NIVEIS_DIFICULDADE, TIPO_ORIENTACAO_NIVELAMENTO)
 from app.forms import (FormularioTurma, FormularioAdicionarAluno, FormularioAssunto, FormularioQuestao,
                        FormularioTeste)
 from app.decoradores import perfil_requerido
+from app.agentes import gerador_questao
 
 bp = Blueprint('professor', __name__)
 
@@ -240,6 +241,31 @@ def nova_questao():
         return redirect(url_for('professor.questoes'))
 
     return render_template('professor/questao_form.html', form=form, titulo='Nova questão', letras=LETRAS_ALTERNATIVAS)
+
+
+@bp.route('/questoes/gerar', methods=['POST'])
+@perfil_requerido(PERFIL_PROFESSOR)
+def gerar_questao():
+    """Pede ao agente uma sugestão de questão. Não salva nada: o professor revisa e salva pelo formulário."""
+    dados = request.get_json(silent=True) or {}
+    assunto_id = str(dados.get('assunto_id', ''))
+    assunto = db.session.get(Assunto, int(assunto_id)) if assunto_id.isdigit() else None
+    if assunto is None:
+        return jsonify(erro='Selecione um assunto.'), 400
+    nivel_dificuldade = dados.get('nivel_dificuldade')
+    if nivel_dificuldade not in NIVEIS_DIFICULDADE:
+        return jsonify(erro='Selecione a dificuldade.'), 400
+    habilidade_bncc = (dados.get('habilidade_bncc') or '').strip()[:20] or None
+
+    try:
+        sugestao = gerador_questao.gerar_questao(assunto.nome, assunto.descricao, nivel_dificuldade, habilidade_bncc)
+    except gerador_questao.ErroGeracao as erro:
+        current_app.logger.error('Falha ao gerar questão com o agente: %s', erro)
+        return jsonify(erro=str(erro)), 502
+    except Exception:
+        current_app.logger.exception('Falha ao gerar questão com o agente.')
+        return jsonify(erro='Não foi possível gerar a questão agora. Tente novamente.'), 502
+    return jsonify(sugestao)
 
 
 @bp.route('/questoes/<int:questao_id>/editar', methods=['GET', 'POST'])
