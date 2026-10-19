@@ -1,0 +1,204 @@
+{% extends 'base.html' %} {% block title %}Orientações pedagógicas{% endblock %}
+{% from 'compartilhado/_macros.html' import status_percentual, sem_dados %}
+
+{% macro situacao(item) -%}
+<span class="status {{ 'status-bom' if item.classificacao == 'domina' else 'status-atencao' }}">{{ classificacoes[item.classificacao] }}</span>
+{%- endmacro %}
+
+{% macro seta_variacao(item) -%}
+{% if item.variacao %}
+<span class="variacao variacao-{{ item.variacao }}" title="Antes: {{ item.percentual_anterior }}%">
+	<i class="fas {{ {'melhorou': 'fa-arrow-up', 'manteve': 'fa-equals', 'piorou': 'fa-arrow-down'}[item.variacao] }}"></i> {{ variacoes[item.variacao] }}
+</span>
+{% if item.teste_anterior %}<div class="subtitulo mb-0">antes {{ item.percentual_anterior }}% em {{ item.teste_anterior }}</div>{% endif %}
+{% else %}<span class="text-muted">{{ 'Primeira avaliação' if item.teste_anterior is defined else '—' }}</span>{% endif %}
+{%- endmacro %}
+
+{# Marca assuntos avaliados por poucas questões (registros antigos não têm o campo). #}
+{% macro aviso_amostra(item) -%}
+{% if item.amostra_pequena %}<span class="selo selo-amostra" title="Avaliado por poucas questões: interprete com cautela">poucas questões</span>{% endif %}
+{%- endmacro %}
+
+{% macro tabela_competencias(resumo) -%}
+<div class="table-responsive">
+	<table class="table table-sm mb-0">
+		<thead><tr><th>Competência</th><th class="numero">Acertos</th><th>Aproveitamento</th><th>Situação</th><th>Em relação à última avaliação</th></tr></thead>
+		<tbody>
+			{% for item in resumo.competencias %}
+			<tr>
+				<td>{{ item.competencia }} {{ aviso_amostra(item) }}</td>
+				<td class="numero">{{ item.acertos }}/{{ item.total }}</td>
+				<td>{{ status_percentual(item.percentual) }}</td>
+				<td>{{ situacao(item) }}</td>
+				<td>{{ seta_variacao(item) }}</td>
+			</tr>
+			{% endfor %}
+		</tbody>
+	</table>
+</div>
+<p class="subtitulo mt-2 mb-0">Uma competência é considerada dominada a partir de {{ resumo.limiar_dominio }}% de acerto.
+	{% if resumo.min_questoes %}Assuntos com menos de {{ resumo.min_questoes }} questões no teste são resultados iniciais, a confirmar nos próximos testes.{% endif %}</p>
+{%- endmacro %}
+
+{% macro andamento(feedback) -%}
+{% if feedback.pendente %}
+<div class="aviso-feedback" role="status">
+	<i class="fas fa-spinner fa-spin"></i>
+	<div><strong>Seu feedback está em preparação.</strong> Isso leva poucos instantes; a página se atualiza sozinha.
+		Enquanto isso, veja abaixo como foi em cada competência.</div>
+</div>
+{% elif feedback.com_erro %}
+<div class="aviso-feedback aviso-erro" role="status">
+	<i class="fas fa-exclamation-circle"></i>
+	<div><strong>Não conseguimos preparar o texto do seu feedback agora.</strong>
+		A sua classificação por competência está logo abaixo.</div>
+</div>
+{% endif %}
+{% if pode_gerar_novamente(feedback) %}
+<form method="post" action="{{ url_for('aluno.gerar_feedback_novamente', tentativa_id=feedback.tentativa_id) }}" class="mb-3">
+	{{ form.hidden_tag() }}
+	<button class="btn btn-sm btn-outline-primary"><i class="fas fa-redo"></i> Gerar feedback novamente</button>
+</form>
+{% endif %}
+{%- endmacro %}
+
+{% macro texto_feedback(resultado) -%}
+<p class="feedback-mensagem">{{ resultado.mensagem }}</p>
+
+<div class="grade-feedback">
+	<div>
+		<h4><i class="fas fa-star"></i> Pontos fortes</h4>
+		{% for item in resultado.pontos_fortes %}
+		<p class="mb-2"><strong>{{ item.competencia }}:</strong> {{ item.comentario }}</p>
+		{% else %}<p class="text-muted">Ainda não há competências dominadas neste teste, e tudo bem: é por aqui que você começa.</p>{% endfor %}
+	</div>
+	<div>
+		<h4><i class="fas fa-book-open"></i> O que estudar, por ordem de prioridade</h4>
+		{% if resultado.a_estudar %}
+		<ol class="lista-estudo">
+			{% for item in resultado.a_estudar %}
+			<li>
+				<strong>{{ item.competencia }}</strong> — {{ item.motivo }}
+				<div class="como-estudar"><i class="fas fa-lightbulb"></i> {{ item.como_estudar }}</div>
+			</li>
+			{% endfor %}
+		</ol>
+		{% else %}<p class="text-muted">Nenhuma competência para revisar neste teste. Parabéns!</p>{% endif %}
+	</div>
+</div>
+
+<h4><i class="fas fa-chart-line"></i> Sua evolução</h4>
+<p>{{ resultado.evolucao }}</p>
+
+{% if resultado.recomendacoes %}
+<h4><i class="fas fa-tasks"></i> Dicas de estudo</h4>
+<ul class="mb-0">{% for dica in resultado.recomendacoes %}<li>{{ dica }}</li>{% endfor %}</ul>
+{% endif %}
+{%- endmacro %}
+
+{% macro cabecalho_teste(feedback, resumo) -%}
+<h3>{{ resumo.teste }}</h3>
+<p class="subtitulo">Realizado em {{ resumo.data }} · Aproveitamento geral {{ status_percentual(resumo.percentual) }}</p>
+{%- endmacro %}
+
+{% block content %}
+<div class="cabecalho-pagina">
+	<h1>Minhas orientações pedagógicas</h1>
+	<span class="selo"><i class="fas fa-robot"></i> Agente de IA (Agno)</span>
+</div>
+
+{% if not feedbacks %}
+<div class="cartao">
+	<div class="vazio">
+		<i class="fas fa-robot"></i>
+		<strong>Nenhuma orientação ainda</strong><br />
+		Ao concluir um teste, um agente de IA prepara aqui um feedback com o que você já domina e o que vale estudar.
+		<div class="mt-3"><a href="{{ url_for('aluno.testes') }}" class="btn btn-sm btn-primary">Ver meus testes</a></div>
+	</div>
+</div>
+{% else %}
+{% set atual = feedbacks[0] %}{% set resumo = atual.classificacao %}
+<div class="cartao cartao-destaque">
+	<span class="selo mb-2">Teste mais recente</span>
+	{{ cabecalho_teste(atual, resumo) }}
+	{{ andamento(atual) }}
+	{% if atual.pronto %}{{ texto_feedback(atual.resultado) }}{% endif %}
+</div>
+
+<div class="grade-graficos mb-4">
+	<div class="cartao">
+		<h3>{{ 'Evolução por competência' if resumo.anteriores else 'Acerto por competência' }}</h3>
+		<p class="subtitulo">
+			{% if resumo.anteriores %}Percentual de acerto neste teste e nos anteriores{% else %}Percentual de acerto em cada competência neste teste{% endif %}
+		</p>
+		{% if resumo.competencias %}
+		<div class="area-grafico"><canvas id="graficoCompetencias" aria-label="Percentual de acerto por competência"></canvas></div>
+		{% else %}{{ sem_dados() }}{% endif %}
+	</div>
+	<div class="cartao">
+		<h3>Classificação por competência</h3>
+		<p class="subtitulo">Como você foi em cada competência deste teste</p>
+		{% if resumo.competencias %}{{ tabela_competencias(resumo) }}{% else %}{{ sem_dados() }}{% endif %}
+	</div>
+</div>
+
+{% if feedbacks|length > 1 %}
+<h2 class="titulo-secao">Orientações anteriores</h2>
+{% for feedback in feedbacks[1:] %}{% set resumo_anterior = feedback.classificacao %}
+<details class="cartao historico-feedback">
+	<summary>
+		<strong>{{ resumo_anterior.teste }}</strong>
+		<span class="subtitulo">{{ resumo_anterior.data }} · {{ status_percentual(resumo_anterior.percentual) }}</span>
+		{% if not feedback.pronto %}<span class="selo">{{ 'Em preparação' if feedback.pendente else 'Só classificação' }}</span>{% endif %}
+	</summary>
+	<div class="pt-3">
+		{{ andamento(feedback) }}
+		{% if feedback.pronto %}{{ texto_feedback(feedback.resultado) }}<hr />{% endif %}
+		<h4><i class="fas fa-table"></i> Classificação por competência</h4>
+		{{ tabela_competencias(resumo_anterior) }}
+	</div>
+</details>
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if feedbacks %}
+<script>
+	document.addEventListener('DOMContentLoaded', function () {
+		// Gráfico: o teste mais recente sempre no slot 1; os anteriores, do mais recente ao mais antigo, nos slots 2 e 3.
+		const resumo = {{ feedbacks[0].classificacao|tojson }};
+		const testes = [resumo].concat(resumo.anteriores);
+		const competencias = resumo.competencias.map(c => c.competencia);
+		const series = testes.map((teste, indice) => {
+			const percentuais = Object.fromEntries(teste.competencias.map(c => [c.competencia, c.percentual]));
+			return {
+				rotulo: (indice === 0 ? 'Este teste' : teste.teste) + ' (' + teste.data.slice(0, 5) + ')',
+				valores: competencias.map(nome => nome in percentuais ? percentuais[nome] : null),
+				slot: indice + 1,
+			};
+		}).reverse();
+		if (series.length > 1) {
+			graficoBarrasAgrupadas('graficoCompetencias', competencias, series, { sufixo: '%', maximo: 100 });
+		} else {
+			graficoBarrasHorizontais('graficoCompetencias', competencias, series[0].valores, {
+				sufixo: '%', maximo: 100, detalhes: resumo.competencias.map(c => c.acertos + ' de ' + c.total + ' questões'),
+			});
+		}
+
+		// Enquanto algum feedback estiver em preparação, consulta o status e recarrega quando mudar.
+		const pendentes = {{ feedbacks|selectattr('pendente')|map(attribute='tentativa_id')|list|tojson }};
+		if (pendentes.length) {
+			const consultar = () => Promise.all(pendentes.map(id =>
+				fetch('{{ url_for("aluno.orientacoes") }}/' + id + '/status').then(r => r.json())
+			)).then(lista => {
+				if (lista.some(item => item.status !== 'pendente')) location.reload();
+				else setTimeout(consultar, 4000);
+			}).catch(() => setTimeout(consultar, 10000));
+			setTimeout(consultar, 4000);
+		}
+	});
+</script>
+{% endif %}
+{% endblock %}

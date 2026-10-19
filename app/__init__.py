@@ -71,8 +71,10 @@ def create_app():
     with app.app_context():
         from app import models
         from app.rotas import registrar_rotas
+        from app.agentes.comandos import grupo_agentes
 
         registrar_rotas(app)
+        app.cli.add_command(grupo_agentes)
         db.create_all()
         criar_administrador_padrao(app)
         criar_assuntos_iniciais()

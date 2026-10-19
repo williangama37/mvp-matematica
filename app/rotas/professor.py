@@ -1,14 +1,14 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, abort
 from flask_login import current_user
 from flask_wtf import FlaskForm
 from app import db, estatisticas
 from app.models import (Usuario, Turma, Assunto, Questao, Alternativa, Teste, Tentativa, Resposta,
                         OrientacaoPedagogica, PERFIL_PROFESSOR, PERFIL_ADMINISTRADOR, PERFIL_ALUNO,
-                        LETRAS_ALTERNATIVAS, NIVEIS_DIFICULDADE, TIPO_ORIENTACAO_NIVELAMENTO)
+                        LETRAS_ALTERNATIVAS, NIVEIS_DIFICULDADE)
 from app.forms import (FormularioTurma, FormularioAdicionarAluno, FormularioAssunto, FormularioQuestao,
                        FormularioTeste)
 from app.decoradores import perfil_requerido
-from app.agentes import gerador_questao
+from app.agentes import gerador_questao, feedback_turma, classificacao
 
 bp = Blueprint('professor', __name__)
 
@@ -424,14 +424,81 @@ def ver_tentativa(tentativa_id):
 
 # --------------------------------------------------------------------- Orientações (Agentes de IA)
 
+def _testes_do_professor():
+    """Testes de que o professor é responsável (quem criou). O administrador vê todos."""
+    consulta = Teste.query
+    if not current_user.eh_administrador:
+        consulta = consulta.filter(Teste.criado_por == current_user.id)
+    return consulta.order_by(Teste.criado_em.desc(), Teste.id.desc()).all()
+
+
+def _teste_do_professor(teste_id):
+    teste = db.get_or_404(Teste, teste_id)
+    if not (current_user.eh_administrador or teste.criado_por == current_user.id):
+        abort(403)
+    return teste
+
+
+def _alunos_por_perfil(analise):
+    """Refaz por código o agrupamento usado na análise (mesmas tentativas, até a última resposta
+    considerada) para mostrar ao professor quem está em cada perfil. Os nomes não vão ao agente."""
+    por_tentativa = estatisticas.acerto_por_assunto_por_tentativa(analise.teste_id,
+                                                                  ate=analise.data_ultima_resposta)
+    perfis = classificacao.agrupar_por_necessidade(por_tentativa)
+    tentativas = {t.id: t for t in Tentativa.query.filter(
+        Tentativa.id.in_([i for perfil in perfis for i in perfil['tentativas']])).all()}
+    return {perfil['codigo']: sorted(tentativas[i].aluno.nome_completo for i in perfil['tentativas'] if i in tentativas)
+            for perfil in perfis}
+
+
 @bp.route('/orientacoes-nivelamento')
 @perfil_requerido(PERFIL_PROFESSOR)
 def orientacoes_nivelamento():
-    orientacoes = OrientacaoPedagogica.query.filter_by(tipo=TIPO_ORIENTACAO_NIVELAMENTO,
-                                                       destinatario_id=current_user.id) \
-        .order_by(OrientacaoPedagogica.criado_em.desc()).all()
-    return render_template('compartilhado/orientacoes.html', orientacoes=orientacoes,
-                           titulo='Orientações para aulas de nivelamento',
-                           texto_vazio='Quando os agentes de IA forem implementados, eles analisarão os erros '
-                                       'mapeados pelos distratores e sugerirão aqui planos para as aulas de '
-                                       'nivelamento em matemática de cada turma.')
+    """Análise do agente para o teste selecionado (o mais recente, por padrão). Só lê do banco."""
+    testes = _testes_do_professor()
+    teste_id = request.args.get('teste_id', type=int)
+    teste = _teste_do_professor(teste_id) if teste_id else (testes[0] if testes else None)
+    contexto = {'testes': testes, 'teste': teste, 'form': FlaskForm(), 'minimo': feedback_turma.MIN_RESPOSTAS,
+                'faixas': classificacao.FAIXAS, 'descrever': feedback_turma.descrever}
+    if teste:
+        analises = feedback_turma.historico(teste.id)
+        valida = next((analise for analise in analises if analise.pronto), None)
+        estado = estatisticas.estado_respostas_teste(teste.id)
+        contexto.update(
+            estado=estado,
+            mais_recente=analises[0] if analises else None,
+            valida=valida,
+            novas_respostas=max(estado['quantidade'] - valida.qtd_respostas, 0) if valida else 0,
+            alunos_por_perfil=_alunos_por_perfil(valida) if valida else {},
+            anteriores=[analise for analise in analises if analise is not valida],
+        )
+    return render_template('professor/orientacoes.html', **contexto)
+
+
+@bp.route('/testes/<int:teste_id>/analise')
+@perfil_requerido(PERFIL_PROFESSOR)
+def analise_teste(teste_id):
+    """Análise mais recente do teste, lida do banco (nunca chama o agente)."""
+    analise = feedback_turma.analise_mais_recente(_teste_do_professor(teste_id).id)
+    if analise is None:
+        return jsonify(status=None)
+    return jsonify(status=analise.status, gatilho=analise.gatilho, modelo=analise.modelo,
+                   qtd_respostas=analise.qtd_respostas, criado_em=analise.criado_em.isoformat(),
+                   descricao=feedback_turma.descrever(analise), resultado=analise.resultado)
+
+
+@bp.route('/testes/<int:teste_id>/analise/atualizar', methods=['POST'])
+@perfil_requerido(PERFIL_PROFESSOR)
+def atualizar_analise_teste(teste_id):
+    """Botão "Atualizar análise": verifica se há respostas novas antes de gerar.
+    Com forcar=true (após a confirmação do professor), gera mesmo sem mudanças."""
+    teste = _teste_do_professor(teste_id)
+    dados = request.get_json(silent=True) or {}
+    forcar = dados.get('forcar') is True or request.form.get('forcar') == 'true'
+    try:
+        resposta = feedback_turma.solicitar_analise(teste, forcar=forcar)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Falha ao solicitar a análise do teste %s.', teste.id)
+        return jsonify(situacao='erro', mensagem='Não foi possível iniciar a análise agora. Tente novamente.'), 500
+    return jsonify(resposta)

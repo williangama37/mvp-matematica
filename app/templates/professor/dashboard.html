@@ -1,4 +1,4 @@
-{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import status_percentual, legenda_status, indicador, sem_dados %}
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import status_percentual, legenda_status, indicador, sem_dados, cartao_evolucao %}
 {% block title %}Dashboard geral{% endblock %} {% block content %}
 <div class="cabecalho-pagina">
 	<h1>Dashboard geral{% if turma %} · {{ turma.descricao }}{% endif %}</h1>
@@ -34,13 +34,9 @@
 </div>
 
 <div class="grade-graficos mb-4">
-	<div class="cartao">
-		<h3>Evolução da {{ 'turma' if turma else 'média geral' }}</h3>
-		<p class="subtitulo">Percentual médio de acerto por dia de aplicação</p>
-		{% if dados.evolucao.valores %}
-		<div class="area-grafico"><canvas id="graficoEvolucao" aria-label="Evolução do percentual médio de acerto"></canvas></div>
-		{% else %}{{ sem_dados('Nenhum teste realizado ainda.') }}{% endif %}
-	</div>
+	{{ cartao_evolucao(dados.evolucao, 'Evolução da ' + ('turma' if turma else 'média geral'),
+	                   'Percentual de acerto ' + ('da turma' if turma else 'de todos os alunos') + ' em cada teste, '
+	                   'em ordem de aplicação. Escolha um assunto para comparar o mesmo conteúdo entre os testes.') }}
 
 	<div class="cartao">
 		<h3>Acerto por assunto</h3>
@@ -113,8 +109,7 @@
 	const evolucao = {{ dados.evolucao|tojson }};
 	const assuntos = {{ dados.acerto_por_assunto|tojson }};
 	const erros = {{ dados.erros_por_tipo|tojson }};
-	graficoLinha('graficoEvolucao', evolucao.rotulos.map(d => d.split('-').reverse().join('/')), evolucao.valores,
-		{ rotulo: 'Acerto médio', sufixo: '%', maximo: 100 });
+	if (evolucao.rotulos.length) graficoEvolucao('graficoEvolucao', 'seletorEvolucao', 'notaEvolucao', evolucao, 'respostas');
 	graficoBarrasHorizontais('graficoAssuntos', assuntos.map(a => a.assunto), assuntos.map(a => a.percentual), {
 		sufixo: '%', maximo: 100, detalhes: assuntos.map(a => a.acertos + ' de ' + a.total + ' respostas'),
 	});

@@ -11,7 +11,12 @@
 	<a href="{{ url_for('professor.dashboard_aluno', aluno_id=tentativa.aluno_id) }}" class="btn btn-outline-primary">
 		<i class="fas fa-chart-line"></i> Dashboard do aluno</a>
 	{% else %}
-	<a href="{{ url_for('aluno.testes') }}" class="btn btn-outline-primary">Voltar aos testes</a>
+	<div>
+		{% if tentativa.feedback %}
+		<a href="{{ url_for('aluno.orientacoes') }}" class="btn btn-primary"><i class="fas fa-lightbulb"></i> Ver meu feedback</a>
+		{% endif %}
+		<a href="{{ url_for('aluno.testes') }}" class="btn btn-outline-primary">Voltar aos testes</a>
+	</div>
 	{% endif %}
 </div>
 

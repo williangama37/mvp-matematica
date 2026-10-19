@@ -1,5 +1,5 @@
 {# Painel individual do aluno. Usado pelo próprio aluno e pelo professor (mostrar_distratores=True). #}
-{% from 'compartilhado/_macros.html' import status_percentual, legenda_status, indicador, sem_dados %}
+{% from 'compartilhado/_macros.html' import status_percentual, legenda_status, indicador, sem_dados, cartao_evolucao %}
 
 <div class="indicadores">
 	{{ indicador('Testes realizados', dados.total_tentativas) }}
@@ -14,13 +14,9 @@
 </div>
 
 <div class="grade-graficos mb-4">
-	<div class="cartao">
-		<h3>Evolução nos testes</h3>
-		<p class="subtitulo">Percentual de acerto em cada teste, em ordem de realização</p>
-		{% if dados.evolucao.valores %}
-		<div class="area-grafico"><canvas id="graficoEvolucao" aria-label="Evolução do percentual de acerto"></canvas></div>
-		{% else %}{{ sem_dados('Nenhum teste realizado ainda.') }}{% endif %}
-	</div>
+	{{ cartao_evolucao(dados.evolucao, 'Evolução nos testes',
+	                   'Percentual de acerto em cada teste, em ordem de realização. Os testes podem cobrir assuntos '
+	                   'diferentes: escolha um assunto para comparar o mesmo conteúdo.') }}
 
 	<div class="cartao">
 		<h3>Acerto por assunto</h3>
@@ -115,7 +111,7 @@
 		const evolucao = {{ dados.evolucao|tojson }};
 		const assuntos = {{ dados.acerto_por_assunto|tojson }};
 		const erros = {{ dados.erros_por_tipo|tojson }};
-		graficoLinha('graficoEvolucao', evolucao.rotulos, evolucao.valores, { rotulo: 'Acerto', sufixo: '%', maximo: 100 });
+		if (evolucao.rotulos.length) graficoEvolucao('graficoEvolucao', 'seletorEvolucao', 'notaEvolucao', evolucao, 'questões');
 		graficoBarrasHorizontais('graficoAssuntos', assuntos.map(a => a.assunto), assuntos.map(a => a.percentual), {
 			sufixo: '%', maximo: 100, detalhes: assuntos.map(a => a.acertos + ' de ' + a.total + ' questões'),
 		});

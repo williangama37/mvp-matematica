@@ -1,0 +1,317 @@
+{% extends 'base.html' %} {% block title %}Orientações pedagógicas{% endblock %}
+{% from 'compartilhado/_macros.html' import status_percentual, legenda_status, indicador, sem_dados %}
+
+{% macro texto_analise(resultado, alunos_por_perfil={}) -%}
+<h4><i class="fas fa-exclamation-triangle"></i> Competências críticas, por ordem de prioridade</h4>
+{% if resultado.competencias_criticas %}
+<ol class="lista-estudo">
+	{% for item in resultado.competencias_criticas %}
+	<li>
+		<strong>{{ item.competencia }}</strong> — {{ item.evidencias }}
+		<div class="como-estudar"><i class="fas fa-crosshairs"></i> {{ item.foco }}</div>
+	</li>
+	{% endfor %}
+</ol>
+{% else %}<p class="text-muted">Nenhuma competência crítica apontada.</p>{% endif %}
+
+<h4><i class="fas fa-users"></i> Perfis de alunos por necessidade</h4>
+<p class="subtitulo">Agrupamento feito pelo sistema a partir da classificação de cada aluno; o agente apenas descreve os perfis.</p>
+<div class="grade-perfis">
+	{% for perfil in resultado.perfis_de_grupo %}
+	<div class="perfil">
+		<div class="d-flex justify-content-between align-items-start" style="gap: 8px">
+			<strong>{{ perfil.titulo }}</strong>
+			<span class="selo text-nowrap">{{ perfil.alunos }} aluno(s) · {{ perfil.percentual }}%</span>
+		</div>
+		<div class="mt-1 mb-2">
+			{% for nome in perfil.precisa_estudar %}<span class="selo selo-competencia">{{ nome }}</span>{% else %}<span class="status status-bom">Domina todas as competências</span>{% endfor %}
+		</div>
+		<p class="mb-1">{{ perfil.descricao }}</p>
+		<p class="como-estudar mb-0"><i class="fas fa-route"></i> {{ perfil.encaminhamento }}</p>
+		{% if alunos_por_perfil.get(perfil.codigo) %}
+		<details class="mt-2"><summary class="subtitulo mb-0">Ver alunos</summary>
+			<p class="mb-0 mt-1">{{ alunos_por_perfil[perfil.codigo]|join(', ') }}</p>
+		</details>
+		{% endif %}
+	</div>
+	{% endfor %}
+</div>
+
+<h4><i class="fas fa-chalkboard-teacher"></i> Estratégias de nivelamento</h4>
+{% for item in resultado.estrategias %}
+<div class="estrategia">
+	<strong>{{ item.titulo }}</strong>
+	{% for nome in item.competencias %}<span class="selo selo-competencia">{{ nome }}</span>{% endfor %}
+	{% for codigo in item.perfis %}<span class="selo">{{ codigo }}</span>{% endfor %}
+	<p class="mb-1 mt-1">{{ item.descricao }}</p>
+	<p class="como-estudar mb-0"><i class="fas fa-chart-bar"></i> {{ item.justificativa }}</p>
+</div>
+{% endfor %}
+
+<div class="grade-feedback">
+	<div>
+		<h4><i class="fas fa-list-ol"></i> Sequência sugerida</h4>
+		<ol class="lista-estudo">
+			{% for etapa in resultado.sequencia_sugerida %}
+			<li><strong>{{ etapa.competencia }}</strong>: {{ etapa.conteudos }}<div class="como-estudar">{{ etapa.motivo }}</div></li>
+			{% endfor %}
+		</ol>
+	</div>
+	<div>
+		<h4><i class="fas fa-flag"></i> Pontos de atenção</h4>
+		<ul class="mb-0">{% for ponto in resultado.pontos_de_atencao %}<li>{{ ponto }}</li>{% endfor %}</ul>
+	</div>
+</div>
+
+<h4><i class="fas fa-balance-scale"></i> Justificativa</h4>
+<p class="mb-0">{{ resultado.justificativa }}</p>
+{%- endmacro %}
+
+{% macro tabelas_dados(dados) -%}
+<div class="cartao">
+	<h3>Distribuição por faixas em cada competência</h3>
+	<p class="subtitulo">Percentual de alunos em cada faixa de acerto · {{ legenda_status() }}</p>
+	<div class="table-responsive">
+		<table class="table table-sm mb-0">
+			<thead><tr><th>Competência</th><th>Acerto</th><th class="numero">Dominam</th><th class="numero">Precisam estudar</th>
+				{% for chave, rotulo, _ in faixas %}<th class="numero">{{ rotulo }}</th>{% endfor %}</tr></thead>
+			<tbody>
+				{% for item in dados.competencias|sort(attribute='prioridade_pelos_dados') %}
+				<tr>
+					<td>{{ item.competencia }}
+						{% if item.amostra_pequena %}<span class="selo selo-amostra" title="Avaliada por poucas questões neste teste: interprete com cautela">{{ item.questoes }} {{ 'questão' if item.questoes == 1 else 'questões' }}</span>{% endif %}</td>
+					<td>{{ status_percentual(item.percentual_acerto) }}</td>
+					<td class="numero">{{ item.alunos_domina.percentual }}%</td>
+					<td class="numero">{{ item.alunos_precisa_estudar.percentual }}%</td>
+					{% for chave, _, _ in faixas %}
+					<td class="numero">{{ item.distribuicao_faixas[chave].percentual }}% <span class="text-muted">({{ item.distribuicao_faixas[chave].alunos }})</span></td>
+					{% endfor %}
+				</tr>
+				{% endfor %}
+			</tbody>
+		</table>
+	</div>
+</div>
+
+<div class="grade-graficos mb-4">
+	<div class="cartao">
+		<h3>Questões mais erradas</h3>
+		<p class="subtitulo">Percentual de alunos que erraram (ou deixaram em branco)</p>
+		{% if dados.questoes_mais_erradas %}
+		<div class="table-responsive">
+			<table class="table table-sm mb-0">
+				<thead><tr><th>Competência</th><th>Questão</th><th class="numero">Erro</th></tr></thead>
+				<tbody>
+					{% for item in dados.questoes_mais_erradas %}
+					<tr><td>{{ item.competencia }}</td><td>{{ item.enunciado|truncate(90) }}</td><td class="numero">{{ item.percentual_erro }}%</td></tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+		{% else %}{{ sem_dados('Nenhuma questão errada.') }}{% endif %}
+	</div>
+	<div class="cartao">
+		<h3>Alternativas erradas mais escolhidas</h3>
+		<p class="subtitulo">Distratores e o raciocínio equivocado que revelam</p>
+		{% if dados.alternativas_erradas_frequentes %}
+		<div class="table-responsive">
+			<table class="table table-sm mb-0">
+				<thead><tr><th>Alternativa</th><th>Raciocínio equivocado</th><th class="numero">Alunos</th></tr></thead>
+				<tbody>
+					{% for item in dados.alternativas_erradas_frequentes %}
+					<tr>
+						<td>{{ item.alternativa|truncate(40) }}<div class="subtitulo mb-0">{{ item.competencia }} · {{ item.tipo_erro }}</div></td>
+						<td>{{ item.raciocinio_equivocado or '—' }}</td>
+						<td class="numero">{{ item.percentual_alunos }}%</td>
+					</tr>
+					{% endfor %}
+				</tbody>
+			</table>
+		</div>
+		{% else %}{{ sem_dados('Nenhum distrator escolhido.') }}{% endif %}
+	</div>
+</div>
+{%- endmacro %}
+
+{% block content %}
+<div class="cabecalho-pagina">
+	<h1>Orientações pedagógicas</h1>
+	<span class="selo"><i class="fas fa-robot"></i> Agente de IA (Agno)</span>
+</div>
+
+{% if not teste %}
+<div class="cartao">
+	<div class="vazio">
+		<i class="fas fa-clipboard-list"></i>
+		<strong>Nenhum teste seu ainda</strong><br />
+		Crie e aplique um teste; com pelo menos {{ minimo }} respostas, o agente sugere aqui uma estratégia de nivelamento.
+		<div class="mt-3"><a href="{{ url_for('professor.novo_teste') }}" class="btn btn-sm btn-primary">Novo teste</a></div>
+	</div>
+</div>
+{% else %}
+<div class="barra-analise">
+	<form method="GET" action="{{ url_for('professor.orientacoes_nivelamento') }}">
+		<select name="teste_id" class="form-control" onchange="this.form.submit()" aria-label="Escolher o teste">
+			{% for item in testes %}
+			<option value="{{ item.id }}" {{ 'selected' if item.id == teste.id }}>{{ item.titulo }} ({{ item.criado_em.strftime('%d/%m/%Y') }})</option>
+			{% endfor %}
+		</select>
+	</form>
+	{{ form.hidden_tag() }}
+	<button type="button" id="botaoAtualizar" class="btn btn-primary text-nowrap"
+	        data-url="{{ url_for('professor.atualizar_analise_teste', teste_id=teste.id) }}"
+	        {{ 'disabled' if mais_recente and mais_recente.pendente }}>
+		<i class="fas fa-sync-alt"></i> Atualizar análise
+	</button>
+</div>
+
+<div id="avisoAnalise"></div>
+
+<div class="indicadores">
+	{{ indicador('Alunos que responderam', estado.quantidade) }}
+	{{ indicador('Última resposta', estado.ultima_resposta.strftime('%d/%m às %H:%M') if estado.ultima_resposta else '—') }}
+	{{ indicador('Mínimo para analisar', minimo, 'respostas') }}
+	{{ indicador('Análises deste teste', (anteriores|length) + (1 if valida else 0)) }}
+</div>
+
+{% if mais_recente and mais_recente.pendente %}
+<div class="aviso-feedback" role="status">
+	<i class="fas fa-spinner fa-spin"></i>
+	<div><strong>Análise em andamento</strong> ({{ mais_recente.qtd_respostas }} respostas). A página se atualiza quando ela ficar pronta.</div>
+</div>
+{% elif mais_recente and mais_recente.com_erro %}
+<div class="aviso-feedback aviso-erro" role="status">
+	<i class="fas fa-exclamation-circle"></i>
+	<div><strong>A última tentativa de análise falhou</strong> ({{ mais_recente.criado_em.strftime('%d/%m às %H:%M') }}).
+		{% if valida %}A análise abaixo é a última válida.{% endif %} Use "Atualizar análise" para tentar novamente.</div>
+</div>
+{% endif %}
+
+{% if valida %}{% set dados = valida.entrada %}
+<div class="cartao cartao-destaque">
+	<div class="d-flex flex-wrap justify-content-between align-items-start" style="gap: 8px">
+		<div>
+			<h3>Estratégia de nivelamento · {{ teste.titulo }}</h3>
+			<p class="subtitulo mb-2">{{ descrever(valida) }} · Acerto médio {{ status_percentual(dados.desempenho_geral.percentual_medio) }}</p>
+		</div>
+		<span class="selo">{{ valida.nome_gatilho }}</span>
+	</div>
+	{% if novas_respostas %}
+	<div class="aviso-feedback aviso-erro" role="status">
+		<i class="fas fa-bell"></i>
+		<div>Há {{ novas_respostas }} {{ 'nova resposta' if novas_respostas == 1 else 'novas respostas' }} desde esta análise.</div>
+	</div>
+	{% endif %}
+	{{ texto_analise(valida.resultado, alunos_por_perfil) }}
+</div>
+
+<div class="grade-graficos mb-4">
+	<div class="cartao">
+		<h3>Acerto por competência</h3>
+		<p class="subtitulo">Percentual de respostas corretas da turma neste teste</p>
+		<div class="area-grafico"><canvas id="graficoAcerto" aria-label="Percentual de acerto por competência"></canvas></div>
+	</div>
+	<div class="cartao">
+		<h3>Alunos que precisam estudar</h3>
+		<p class="subtitulo">Percentual de alunos abaixo de {{ dados.limiar_dominio }}% de acerto em cada competência</p>
+		<div class="area-grafico"><canvas id="graficoPrecisam" aria-label="Percentual de alunos que precisam estudar por competência"></canvas></div>
+	</div>
+</div>
+{{ tabelas_dados(dados) }}
+{% elif not (mais_recente and mais_recente.pendente) %}
+<div class="cartao">
+	<div class="vazio">
+		<i class="fas fa-robot"></i>
+		{% if estado.quantidade < minimo %}
+		<strong>Aguardando respostas</strong><br />
+		Este teste tem {{ estado.quantidade }} de {{ minimo }} respostas necessárias para a análise.
+		{% else %}
+		<strong>Nenhuma análise ainda</strong><br />
+		Clique em "Atualizar análise" para o agente sugerir uma estratégia de nivelamento para este teste.
+		{% endif %}
+	</div>
+</div>
+{% endif %}
+
+{% if anteriores %}
+<h2 class="titulo-secao">Análises anteriores deste teste</h2>
+{% for analise in anteriores %}
+<details class="cartao historico-feedback">
+	<summary>
+		<strong>{{ descrever(analise) }}</strong>
+		<span class="selo">{{ analise.nome_gatilho }}</span>
+		{% if analise.pendente %}<span class="selo">Em andamento</span>{% elif analise.com_erro %}<span class="status status-critico">Falhou</span>{% endif %}
+	</summary>
+	<div class="pt-3">
+		{% if analise.pronto %}{{ texto_analise(analise.resultado) }}
+		{% elif analise.com_erro %}<p class="text-muted mb-0">O modelo não conseguiu gerar esta análise.</p>
+		{% else %}<p class="text-muted mb-0">Esta análise ainda está sendo gerada.</p>{% endif %}
+	</div>
+</details>
+{% endfor %}
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if teste %}
+<script>
+	document.addEventListener('DOMContentLoaded', function () {
+		{% if valida %}
+		const competencias = {{ valida.entrada.competencias|tojson }};
+		graficoBarrasHorizontais('graficoAcerto', competencias.map(c => c.competencia), competencias.map(c => c.percentual_acerto), {
+			sufixo: '%', maximo: 100, detalhes: competencias.map(c => c.respostas + ' respostas'),
+		});
+		graficoBarrasHorizontais('graficoPrecisam', competencias.map(c => c.competencia), competencias.map(c => c.alunos_precisa_estudar.percentual), {
+			sufixo: '%', maximo: 100, detalhes: competencias.map(c => c.alunos_precisa_estudar.alunos + ' de ' + c.alunos_avaliados + ' alunos'),
+		});
+		{% endif %}
+
+		const botao = document.getElementById('botaoAtualizar');
+		const aviso = document.getElementById('avisoAnalise');
+		const mostrar = (mensagem, tipo) => {
+			aviso.innerHTML = '';
+			const caixa = document.createElement('div');
+			caixa.className = 'alert alert-' + tipo;
+			caixa.setAttribute('role', 'status');
+			caixa.textContent = mensagem;
+			aviso.appendChild(caixa);
+		};
+
+		async function atualizar(forcar) {
+			botao.disabled = true;
+			try {
+				const resposta = await fetch(botao.dataset.url, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'X-CSRFToken': document.querySelector('input[name="csrf_token"]').value,
+					},
+					body: JSON.stringify({ forcar: forcar }),
+				});
+				const dados = await resposta.json();
+				if (dados.situacao === 'iniciada') return location.reload();
+				if (dados.situacao === 'sem_mudanca') {
+					if (window.confirm(dados.mensagem)) return atualizar(true);
+				} else {
+					mostrar(dados.mensagem, dados.situacao === 'em_andamento' ? 'info' : 'warning');
+				}
+			} catch (erro) {
+				mostrar('Não foi possível falar com o servidor. Tente novamente.', 'danger');
+			}
+			botao.disabled = false;
+		}
+		botao.addEventListener('click', () => atualizar(false));
+
+		{% if mais_recente and mais_recente.pendente %}
+		// Enquanto a análise estiver em andamento, consulta a rota de leitura e recarrega quando mudar.
+		const consultar = () => fetch('{{ url_for("professor.analise_teste", teste_id=teste.id) }}')
+			.then(r => r.json())
+			.then(dados => dados.status === 'pendente' ? setTimeout(consultar, 5000) : location.reload())
+			.catch(() => setTimeout(consultar, 10000));
+		setTimeout(consultar, 5000);
+		{% endif %}
+	});
+</script>
+{% endif %}
+{% endblock %}

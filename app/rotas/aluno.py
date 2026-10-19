@@ -1,11 +1,11 @@
 from datetime import datetime
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, jsonify, current_app
 from flask_login import current_user
 from flask_wtf import FlaskForm
 from app import db, estatisticas
-from app.models import Teste, Tentativa, Resposta, Alternativa, OrientacaoPedagogica, PERFIL_ALUNO, \
-    TIPO_ORIENTACAO_ALUNO
+from app.models import Teste, Tentativa, Resposta, Alternativa, FeedbackAluno, PERFIL_ALUNO
 from app.decoradores import perfil_requerido
+from app.agentes import feedback_aluno, classificacao, execucao
 
 bp = Blueprint('aluno', __name__)
 
@@ -68,6 +68,7 @@ def realizar_teste(teste_id):
         tentativa.finalizada_em = datetime.now()
         db.session.add(tentativa)
         db.session.commit()
+        _agendar_feedback(tentativa)
         flash('Teste enviado! Confira o seu resultado.', 'success')
         return redirect(url_for('aluno.resultado', tentativa_id=tentativa.id))
 
@@ -86,9 +87,44 @@ def resultado(tentativa_id):
 @bp.route('/orientacoes')
 @perfil_requerido(PERFIL_ALUNO)
 def orientacoes():
-    lista = OrientacaoPedagogica.query.filter_by(tipo=TIPO_ORIENTACAO_ALUNO, destinatario_id=current_user.id) \
-        .order_by(OrientacaoPedagogica.criado_em.desc()).all()
-    return render_template('compartilhado/orientacoes.html', orientacoes=lista,
-                           titulo='Minhas orientações pedagógicas',
-                           texto_vazio='Em breve, um agente de IA vai analisar os seus testes e indicar aqui o que '
-                                       'revisar e como estudar cada assunto em que você teve dificuldade.')
+    """Feedbacks do agente, do teste mais recente para o mais antigo. Só lê do banco."""
+    feedbacks = FeedbackAluno.query.join(Tentativa).filter(Tentativa.aluno_id == current_user.id) \
+        .order_by(Tentativa.finalizada_em.desc(), Tentativa.id.desc()).all()
+    return render_template('aluno/orientacoes.html', feedbacks=feedbacks, form=FlaskForm(),
+                           classificacoes=classificacao.CLASSIFICACOES, variacoes=classificacao.VARIACOES,
+                           pode_gerar_novamente=execucao.pode_gerar_novamente)
+
+
+@bp.route('/orientacoes/<int:tentativa_id>/status')
+@perfil_requerido(PERFIL_ALUNO)
+def status_feedback(tentativa_id):
+    """Consultado pela página enquanto o feedback está em preparação."""
+    return jsonify(status=_feedback_do_aluno(tentativa_id).status)
+
+
+@bp.route('/orientacoes/<int:tentativa_id>/gerar-novamente', methods=['POST'])
+@perfil_requerido(PERFIL_ALUNO)
+def gerar_feedback_novamente(tentativa_id):
+    feedback = _feedback_do_aluno(tentativa_id)
+    if FlaskForm().validate_on_submit() and execucao.pode_gerar_novamente(feedback):
+        _agendar_feedback(feedback.tentativa)
+        flash('Estamos preparando o seu feedback novamente.', 'info')
+    return redirect(url_for('aluno.orientacoes'))
+
+
+def _feedback_do_aluno(tentativa_id):
+    """O aluno só acessa feedbacks das próprias tentativas."""
+    feedback = FeedbackAluno.query.join(Tentativa) \
+        .filter(FeedbackAluno.tentativa_id == tentativa_id, Tentativa.aluno_id == current_user.id).first()
+    if feedback is None:
+        abort(404)
+    return feedback
+
+
+def _agendar_feedback(tentativa):
+    """O teste já foi salvo: uma falha aqui não pode impedir o aluno de ver o resultado."""
+    try:
+        feedback_aluno.agendar(tentativa)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception('Não foi possível agendar o feedback da tentativa %s.', tentativa.id)

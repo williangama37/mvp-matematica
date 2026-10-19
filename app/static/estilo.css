@@ -10,6 +10,7 @@
 	--primaria-escura: #1c5cab;
 	--serie-1: #2a78d6;
 	--serie-2: #eb6834;
+	--serie-3: #1baf7a;
 	--status-bom: #0ca30c;
 	--status-atencao: #fab219;
 	--status-critico: #d03b3b;
@@ -398,4 +399,194 @@ body {
 
 .caixa-acesso .btn {
 	width: 100%;
+}
+
+/* ------------------------------------------------------------ Feedback do agente (aluno) */
+.cartao-destaque {
+	border-left: 4px solid var(--primaria);
+}
+
+.cartao h4 {
+	font-size: 0.95rem;
+	font-weight: 600;
+	margin: 1.25rem 0 0.5rem;
+}
+
+.cartao h4 i {
+	color: var(--primaria);
+	width: 1.2rem;
+}
+
+.feedback-mensagem {
+	font-size: 1.05rem;
+	line-height: 1.55;
+	margin-bottom: 0.5rem;
+}
+
+.grade-feedback {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	gap: 0 28px;
+}
+
+.lista-estudo {
+	padding-left: 1.2rem;
+	margin-bottom: 0;
+}
+
+.lista-estudo li {
+	margin-bottom: 0.75rem;
+}
+
+.como-estudar {
+	color: var(--texto-secundario);
+	font-size: 0.9rem;
+	margin-top: 2px;
+}
+
+.como-estudar i {
+	color: var(--status-atencao);
+}
+
+.aviso-feedback {
+	display: flex;
+	gap: 12px;
+	align-items: flex-start;
+	padding: 12px 14px;
+	border-radius: 8px;
+	background: #eaf2fc;
+	margin: 0.5rem 0 1rem;
+}
+
+.aviso-feedback i {
+	color: var(--primaria);
+	margin-top: 3px;
+}
+
+.aviso-erro {
+	background: #fff7e6;
+}
+
+.aviso-erro i {
+	color: var(--status-atencao);
+}
+
+.variacao {
+	white-space: nowrap;
+}
+
+.variacao i {
+	font-size: 0.75rem;
+	margin-right: 2px;
+}
+
+.variacao-melhorou i {
+	color: var(--status-bom);
+}
+
+.variacao-piorou i {
+	color: var(--status-critico);
+}
+
+.variacao-manteve i {
+	color: var(--texto-suave);
+}
+
+.titulo-secao {
+	font-size: 1.2rem;
+	margin: 8px 0 14px;
+}
+
+.historico-feedback summary {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 6px 14px;
+	cursor: pointer;
+}
+
+.historico-feedback summary .subtitulo {
+	margin: 0;
+}
+
+/* ------------------------------------------------------------ Análise da turma (professor) */
+.barra-analise {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 16px;
+}
+
+.barra-analise form {
+	flex: 1 1 260px;
+	max-width: 520px;
+}
+
+.grade-perfis {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 12px;
+}
+
+.perfil,
+.estrategia {
+	border: 1px solid var(--grade);
+	border-radius: 8px;
+	padding: 12px 14px;
+	background: #fff;
+}
+
+.estrategia {
+	margin-bottom: 10px;
+}
+
+.selo-competencia {
+	background: #eaf2fc;
+	color: var(--primaria-escura);
+	margin: 0 4px 4px 0;
+}
+
+/* ------------------------------------------------------------ Seletor acima de gráficos */
+.seletor-grafico {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 10px;
+}
+
+.seletor-grafico label {
+	margin: 0;
+	font-size: 0.85rem;
+	color: var(--texto-secundario);
+}
+
+.seletor-grafico select {
+	max-width: 280px;
+}
+
+.nota-grafico {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin: 8px 0 0;
+	font-size: 0.78rem;
+	color: var(--texto-suave);
+}
+
+.nota-grafico[hidden] {
+	display: none;
+}
+
+.ponto-vazado {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	border: 2px solid var(--serie-1);
+	background: var(--superficie);
+}
+
+.selo-amostra {
+	background: #fff7e6;
+	color: #8a5a00;
+	margin-left: 4px;
 }

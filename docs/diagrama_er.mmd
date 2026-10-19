@@ -1,0 +1,107 @@
+erDiagram
+    USUARIO {
+        int id PK
+        string nome_usuario UK
+        string nome_completo
+        string email UK
+        string senha_hash
+        string perfil
+        int turma_id FK
+        datetime ultimo_acesso
+        datetime criado_em
+        datetime atualizado_em
+    }
+    TURMA {
+        int id PK
+        string nome
+        int ano_letivo
+        int professor_id FK
+        datetime criado_em
+        datetime atualizado_em
+    }
+    ASSUNTO {
+        int id PK
+        string nome UK
+        text descricao
+        datetime criado_em
+    }
+    QUESTAO {
+        int id PK
+        text enunciado
+        int assunto_id FK
+        string nivel_dificuldade
+        string habilidade_bncc
+        bool ativa
+        datetime criado_em
+        datetime atualizado_em
+        int criado_por FK
+        int atualizado_por FK
+    }
+    ALTERNATIVA {
+        int id PK
+        int questao_id FK
+        string letra
+        text texto
+        bool correta
+        text descricao_distrator
+        string tipo_erro
+    }
+    TESTE {
+        int id PK
+        string titulo
+        text descricao
+        int turma_id FK
+        bool ativo
+        datetime criado_em
+        datetime atualizado_em
+        int criado_por FK
+    }
+    TESTE_QUESTAO {
+        int teste_id PK,FK
+        int questao_id PK,FK
+    }
+    TENTATIVA {
+        int id PK
+        int teste_id FK
+        int aluno_id FK
+        datetime iniciada_em
+        datetime finalizada_em
+        int total_acertos
+        int total_questoes
+    }
+    RESPOSTA {
+        int id PK
+        int tentativa_id FK
+        int questao_id FK
+        int alternativa_id FK
+        bool correta
+    }
+    ORIENTACAO_PEDAGOGICA {
+        int id PK
+        string tipo
+        int destinatario_id FK
+        int turma_id FK
+        int tentativa_id FK
+        string titulo
+        text conteudo
+        string gerado_por
+        datetime criado_em
+    }
+
+    TURMA |o--o{ USUARIO : "tem alunos"
+    USUARIO |o--o{ TURMA : "leciona"
+    ASSUNTO ||--o{ QUESTAO : "classifica"
+    USUARIO |o--o{ QUESTAO : "cria/atualiza"
+    QUESTAO ||--o{ ALTERNATIVA : "possui"
+    TURMA |o--o{ TESTE : "recebe"
+    USUARIO |o--o{ TESTE : "cria"
+    TESTE ||--o{ TESTE_QUESTAO : "contém"
+    QUESTAO ||--o{ TESTE_QUESTAO : "aparece em"
+    TESTE ||--o{ TENTATIVA : "é realizado em"
+    USUARIO ||--o{ TENTATIVA : "realiza"
+    TENTATIVA ||--o{ RESPOSTA : "registra"
+    QUESTAO ||--o{ RESPOSTA : "respondida em"
+    ALTERNATIVA |o--o{ RESPOSTA : "escolhida em"
+    USUARIO ||--o{ ORIENTACAO_PEDAGOGICA : "recebe"
+    TURMA |o--o{ ORIENTACAO_PEDAGOGICA : "refere-se a"
+    TENTATIVA |o--o{ ORIENTACAO_PEDAGOGICA : "origina"

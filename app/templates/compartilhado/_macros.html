@@ -38,3 +38,25 @@
 	{% for erro in field.errors %}<div class="invalid-feedback d-block">{{ erro }}</div>{% endfor %}
 </div>
 {%- endmacro %}
+
+{# Cartão de evolução teste a teste (estatisticas.evolucao_por_teste), com o seletor de assunto acima do
+   gráfico. O JavaScript é ligado com graficoEvolucao('graficoEvolucao', 'seletorEvolucao', 'notaEvolucao', ...). #}
+{% macro cartao_evolucao(evolucao, titulo, subtitulo, texto_vazio='Nenhum teste realizado ainda.') -%}
+<div class="cartao">
+	<h3>{{ titulo }}</h3>
+	<p class="subtitulo">{{ subtitulo }}</p>
+	{% if evolucao.rotulos %}
+	<div class="seletor-grafico">
+		<label for="seletorEvolucao">Assunto</label>
+		<select id="seletorEvolucao" class="form-control form-control-sm">
+			<option value="">Todos os assuntos (acerto geral)</option>
+			{% for nome in evolucao.assuntos %}<option value="{{ nome }}">{{ nome }}</option>{% endfor %}
+		</select>
+	</div>
+	<div class="area-grafico"><canvas id="graficoEvolucao" aria-label="{{ titulo }}"></canvas></div>
+	<p id="notaEvolucao" class="nota-grafico" hidden>
+		<span class="ponto-vazado" aria-hidden="true"></span> Calculado com menos de {{ evolucao.min_questoes }} questões: interprete com cautela.
+	</p>
+	{% else %}{{ sem_dados(texto_vazio) }}{% endif %}
+</div>
+{%- endmacro %}

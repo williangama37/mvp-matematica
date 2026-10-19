@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from app import db
 from flask_login import UserMixin
@@ -181,6 +182,7 @@ class Teste(db.Model):
     criador = db.relationship('Usuario', foreign_keys=[criado_por])
     questoes = db.relationship('Questao', secondary=teste_questao, lazy='subquery', order_by='Questao.id')
     tentativas = db.relationship('Tentativa', back_populates='teste', lazy=True, cascade='all, delete-orphan')
+    analises = db.relationship('FeedbackTurma', back_populates='teste', lazy=True, cascade='all, delete-orphan')
 
 
 class Tentativa(db.Model):
@@ -197,6 +199,8 @@ class Tentativa(db.Model):
     teste = db.relationship('Teste', back_populates='tentativas')
     aluno = db.relationship('Usuario', back_populates='tentativas')
     respostas = db.relationship('Resposta', back_populates='tentativa', lazy=True, cascade='all, delete-orphan')
+    feedback = db.relationship('FeedbackAluno', back_populates='tentativa', uselist=False,
+                               cascade='all, delete-orphan')
 
     @property
     def percentual_acerto(self):
@@ -242,3 +246,122 @@ class OrientacaoPedagogica(db.Model):
     destinatario = db.relationship('Usuario', back_populates='orientacoes')
     turma = db.relationship('Turma')
     tentativa = db.relationship('Tentativa')
+
+
+STATUS_PENDENTE = 'pendente'
+STATUS_PRONTO = 'pronto'
+STATUS_ERRO = 'erro'
+STATUS_AGENTE = (STATUS_PENDENTE, STATUS_PRONTO, STATUS_ERRO)
+
+
+class RegistroAgenteMixin:
+    """Campos comuns aos resultados dos agentes de diagnóstico (feedback do aluno e análise da turma).
+    Os dados de entrada são calculados por código e salvos antes de o agente rodar, na coluna JSON
+    indicada por COLUNA_ENTRADA; o resultado do agente só existe quando o status é 'pronto'."""
+    COLUNA_ENTRADA = None
+
+    resultado_json = db.Column(db.Text)
+    status = db.Column(db.String(10), nullable=False, default=STATUS_PENDENTE)
+    modelo = db.Column(db.String(60))
+    criado_em = db.Column(db.DateTime, default=agora)
+
+    @property
+    def entrada(self):
+        valor = getattr(self, self.COLUNA_ENTRADA)
+        return json.loads(valor) if valor else None
+
+    @entrada.setter
+    def entrada(self, valor):
+        setattr(self, self.COLUNA_ENTRADA, json.dumps(valor, ensure_ascii=False))
+
+    @property
+    def resultado(self):
+        return json.loads(self.resultado_json) if self.resultado_json else None
+
+    @resultado.setter
+    def resultado(self, valor):
+        self.resultado_json = json.dumps(valor, ensure_ascii=False) if valor is not None else None
+
+    @property
+    def inicio_geracao(self):
+        """Quando a geração atual começou (usado para detectar um 'pendente' que perdeu a thread)."""
+        return self.criado_em
+
+    @property
+    def pendente(self):
+        return self.status == STATUS_PENDENTE
+
+    @property
+    def pronto(self):
+        return self.status == STATUS_PRONTO
+
+    @property
+    def com_erro(self):
+        return self.status == STATUS_ERRO
+
+
+class FeedbackAluno(RegistroAgenteMixin, db.Model):
+    """Feedback do agente de IA para o aluno, um por tentativa (gerar de novo reaproveita o registro)."""
+    __tablename__ = 'feedback_aluno'
+    __table_args__ = (
+        db.CheckConstraint(f"status IN {STATUS_AGENTE}", name='ck_feedback_aluno_status'),
+        db.UniqueConstraint('tentativa_id', name='uq_feedback_aluno_tentativa_id'),
+    )
+    COLUNA_ENTRADA = 'classificacao_json'
+
+    id = db.Column(db.Integer, primary_key=True)
+    tentativa_id = db.Column(db.Integer, db.ForeignKey('tentativa.id', name='fk_feedback_aluno_tentativa_id',
+                                                       ondelete='CASCADE'),
+                             nullable=False)
+    classificacao_json = db.Column(db.Text, nullable=False)
+    atualizado_em = db.Column(db.DateTime, default=agora, onupdate=agora)
+
+    tentativa = db.relationship('Tentativa', back_populates='feedback')
+
+    @property
+    def classificacao(self):
+        return self.entrada
+
+    @classificacao.setter
+    def classificacao(self, valor):
+        self.entrada = valor
+
+    @property
+    def inicio_geracao(self):
+        return self.atualizado_em
+
+
+GATILHO_MANUAL = 'manual'
+GATILHO_FORCADO = 'forcado'
+GATILHOS = {GATILHO_MANUAL: 'Manual', GATILHO_FORCADO: 'Forçado (sem respostas novas)'}
+
+
+class FeedbackTurma(RegistroAgenteMixin, db.Model):
+    """Análise do agente de IA para o professor sobre o desempenho da turma em um teste.
+    Cada atualização cria um novo registro, mantendo o histórico. qtd_respostas e
+    data_ultima_resposta guardam o estado dos dados no momento da análise."""
+    __tablename__ = 'feedback_turma'
+    __table_args__ = (
+        db.CheckConstraint(f"status IN {STATUS_AGENTE}", name='ck_feedback_turma_status'),
+        db.CheckConstraint(f"gatilho IN {tuple(GATILHOS)}", name='ck_feedback_turma_gatilho'),
+        db.Index('ix_feedback_turma_teste_criado', 'teste_id', 'criado_em'),
+        # Não é UNIQUE por teste: só impede duas análises 'pendente' ao mesmo tempo para o mesmo teste.
+        db.Index('uq_feedback_turma_pendente', 'teste_id', unique=True,
+                 sqlite_where=db.text(f"status = '{STATUS_PENDENTE}'"),
+                 postgresql_where=db.text(f"status = '{STATUS_PENDENTE}'")),
+    )
+    COLUNA_ENTRADA = 'dados_entrada_json'
+
+    id = db.Column(db.Integer, primary_key=True)
+    teste_id = db.Column(db.Integer, db.ForeignKey('teste.id', name='fk_feedback_turma_teste_id', ondelete='CASCADE'),
+                         nullable=False)
+    qtd_respostas = db.Column(db.Integer, nullable=False)
+    data_ultima_resposta = db.Column(db.DateTime)
+    dados_entrada_json = db.Column(db.Text, nullable=False)
+    gatilho = db.Column(db.String(10), nullable=False, default=GATILHO_MANUAL)
+
+    teste = db.relationship('Teste', back_populates='analises')
+
+    @property
+    def nome_gatilho(self):
+        return GATILHOS.get(self.gatilho, self.gatilho)
