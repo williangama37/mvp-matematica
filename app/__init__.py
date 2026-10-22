@@ -1,4 +1,5 @@
 from flask import Flask
+from sqlalchemy import inspect, text
 from flask_wtf import CSRFProtect
 from flask_migrate import Migrate
 from flask_login import LoginManager
@@ -23,6 +24,15 @@ ASSUNTOS_INICIAIS = [
     ('Probabilidade e Estatística', 'Leitura de tabelas e gráficos, média, moda, mediana e probabilidade.'),
     ('Proporcionalidade', 'Razão, proporção, regra de três e porcentagem.'),
 ]
+
+
+def adicionar_colunas_novas():
+    """db.create_all() não altera tabelas que já existem; aqui entram as colunas criadas depois.
+    Precisa rodar antes de qualquer consulta a Usuario (inclusive no `flask db upgrade`)."""
+    colunas_usuario = {coluna['name'] for coluna in inspect(db.engine).get_columns('usuario')}
+    if 'trocar_senha' not in colunas_usuario:
+        with db.engine.begin() as conexao:
+            conexao.execute(text('ALTER TABLE usuario ADD COLUMN trocar_senha BOOLEAN NOT NULL DEFAULT FALSE'))
 
 
 def criar_administrador_padrao(app):
@@ -76,6 +86,7 @@ def create_app():
         registrar_rotas(app)
         app.cli.add_command(grupo_agentes)
         db.create_all()
+        adicionar_colunas_novas()
         criar_administrador_padrao(app)
         criar_assuntos_iniciais()
 

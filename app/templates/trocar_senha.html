@@ -1,0 +1,18 @@
+{% extends 'base_acesso.html' %} {% block title %}Nova senha{% endblock %} {% block content %}
+{% macro campo(field, icone) -%}
+<div class="form-group">
+	<label for="{{ field.id }}"><i class="fas {{ icone }}"></i> {{ field.label.text }}</label>
+	{{ field(class="form-control" + (" is-invalid" if field.errors else ""), autocomplete="new-password", **kwargs) }}
+	{% for erro in field.errors %}<div class="invalid-feedback">{{ erro }}</div>{% endfor %}
+</div>
+{%- endmacro %}
+<h2>Crie uma nova senha</h2>
+<p class="subtitulo">Olá, {{ usuario.nome_completo }}. A sua senha foi redefinida pelo administrador: escolha uma nova senha para continuar.</p>
+<form method="POST" action="{{ url_for('autenticacao.trocar_senha') }}">
+	{{ form.hidden_tag() }}
+	{{ campo(form.senha, 'fa-lock', autofocus=true) }}
+	{{ campo(form.senha2, 'fa-lock') }}
+	<button type="submit" class="btn btn-primary">Salvar nova senha</button>
+</form>
+<p class="mt-3 mb-0 text-center"><a href="{{ url_for('autenticacao.sair') }}">Cancelar e voltar ao login</a></p>
+{% endblock %}

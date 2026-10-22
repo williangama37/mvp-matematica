@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import current_user
 from app import db
 from app.models import Usuario, Turma, Questao, Teste, PERFIS, PERFIL_ADMINISTRADOR, PERFIL_PROFESSOR, PERFIL_ALUNO
-from app.forms import FormularioUsuarioAdmin
+from app.forms import FormularioUsuarioAdmin, FormularioRedefinirSenha
 from app.decoradores import perfil_requerido
 
 bp = Blueprint('admin', __name__)
@@ -20,13 +20,17 @@ def usuarios():
                            form=FormularioUsuarioAdmin())
 
 
+def _formulario_usuario(usuario):
+    form = FormularioUsuarioAdmin(obj=usuario)
+    form.turma_id.choices = [(0, 'Sem turma')] +         [(turma.id, turma.descricao) for turma in Turma.query.order_by(Turma.ano_letivo.desc(), Turma.nome).all()]
+    return form
+
+
 @bp.route('/usuarios/<int:usuario_id>', methods=['GET', 'POST'])
 @perfil_requerido(PERFIL_ADMINISTRADOR)
 def editar_usuario(usuario_id):
     usuario = db.get_or_404(Usuario, usuario_id)
-    form = FormularioUsuarioAdmin(obj=usuario)
-    form.turma_id.choices = [(0, 'Sem turma')] + \
-        [(turma.id, turma.descricao) for turma in Turma.query.order_by(Turma.ano_letivo.desc(), Turma.nome).all()]
+    form = _formulario_usuario(usuario)
     if request.method == 'GET':
         form.turma_id.data = usuario.turma_id or 0
 
@@ -42,7 +46,31 @@ def editar_usuario(usuario_id):
         flash(f'Usuário {usuario.nome_usuario} atualizado: agora é {usuario.nome_perfil}.', 'success')
         return redirect(url_for('admin.usuarios'))
 
-    return render_template('admin/usuario_form.html', form=form, usuario=usuario)
+    return render_template('admin/usuario_form.html', form=form, form_senha=FormularioRedefinirSenha(),
+                           usuario=usuario)
+
+
+@bp.route('/usuarios/<int:usuario_id>/senha', methods=['POST'])
+@perfil_requerido(PERFIL_ADMINISTRADOR)
+def redefinir_senha(usuario_id):
+    usuario = db.get_or_404(Usuario, usuario_id)
+    form_senha = FormularioRedefinirSenha()
+
+    if form_senha.validate_on_submit():
+        usuario.definir_senha(form_senha.nova_senha.data)
+        # A senha definida pelo administrador é provisória: o usuário cria a dele no próximo login.
+        # Quem altera a própria senha não precisa trocá-la de novo.
+        usuario.trocar_senha = usuario.id != current_user.id
+        db.session.commit()
+        if usuario.trocar_senha:
+            flash(f'Senha de {usuario.nome_usuario} alterada. No próximo login será pedida uma nova senha.', 'success')
+        else:
+            flash('Sua senha foi alterada.', 'success')
+        return redirect(url_for('admin.usuarios'))
+
+    form = _formulario_usuario(usuario)
+    form.turma_id.data = usuario.turma_id or 0
+    return render_template('admin/usuario_form.html', form=form, form_senha=form_senha, usuario=usuario)
 
 
 @bp.route('/usuarios/<int:usuario_id>/promover', methods=['POST'])

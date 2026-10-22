@@ -37,6 +37,22 @@ class FormularioUsuarioAdmin(FlaskForm):
     enviar = SubmitField('Salvar')
 
 
+class FormularioRedefinirSenha(FlaskForm):
+    """Usado pelo administrador para definir uma senha provisória para outro usuário."""
+    nova_senha = PasswordField('Nova senha', validators=[DataRequired(), Length(min=6, message='Use ao menos 6 caracteres.')])
+    nova_senha2 = PasswordField('Repita a nova senha',
+                                validators=[DataRequired(), EqualTo('nova_senha', 'As senhas não conferem.')])
+    enviar = SubmitField('Alterar senha')
+
+
+class FormularioTrocarSenha(FlaskForm):
+    """Exibido no primeiro login após o administrador redefinir a senha."""
+    senha = PasswordField('Nova senha', validators=[DataRequired(), Length(min=6, message='Use ao menos 6 caracteres.')])
+    senha2 = PasswordField('Confirme a nova senha',
+                           validators=[DataRequired(), EqualTo('senha', 'As senhas não conferem.')])
+    enviar = SubmitField('Salvar nova senha')
+
+
 class FormularioTurma(FlaskForm):
     nome = StringField('Nome da turma', validators=[DataRequired(), Length(max=100)])
     ano_letivo = IntegerField('Ano letivo', validators=[DataRequired(), NumberRange(min=2000, max=2100)])

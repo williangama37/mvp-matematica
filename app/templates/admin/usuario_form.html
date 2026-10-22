@@ -3,13 +3,31 @@
 <div class="cartao" style="max-width: 700px">
 	<h1>{{ usuario.nome_completo }}</h1>
 	<p class="text-muted">@{{ usuario.nome_usuario }}{% if usuario.email %} · {{ usuario.email }}{% endif %}</p>
-	<form method="POST">
+	<form method="POST" action="{{ url_for('admin.editar_usuario', usuario_id=usuario.id) }}">
 		{{ form.hidden_tag() }}
 		{{ campo(form.perfil) }}
 		{{ campo(form.turma_id) }}
 		<small class="form-text text-muted mb-3">A turma só é considerada para alunos.</small>
 		<button type="submit" class="btn btn-primary">Salvar</button>
 		<a href="{{ url_for('admin.usuarios') }}" class="btn btn-secondary">Voltar</a>
+	</form>
+</div>
+
+<div class="cartao" style="max-width: 700px">
+	<h3><i class="fas fa-key"></i> Alterar senha</h3>
+	{% if usuario.id == current_user.id %}
+	<p class="subtitulo">Defina uma nova senha para a sua conta.</p>
+	{% else %}
+	<p class="subtitulo">A senha definida aqui é provisória: no próximo login, {{ usuario.nome_completo }} precisará criar uma nova senha.</p>
+	{% endif %}
+	{% if usuario.trocar_senha %}
+	<div class="alert alert-warning">Este usuário ainda não trocou a senha provisória.</div>
+	{% endif %}
+	<form method="POST" action="{{ url_for('admin.redefinir_senha', usuario_id=usuario.id) }}">
+		{{ form_senha.hidden_tag() }}
+		{{ campo(form_senha.nova_senha, autocomplete='new-password') }}
+		{{ campo(form_senha.nova_senha2, autocomplete='new-password') }}
+		<button type="submit" class="btn btn-warning">Alterar senha</button>
 	</form>
 </div>
 {% endblock %}

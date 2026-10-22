@@ -48,6 +48,8 @@ class Usuario(UserMixin, db.Model):
     perfil = db.Column(db.String(20), nullable=False, default=PERFIL_ALUNO)
     turma_id = db.Column(db.Integer, db.ForeignKey('turma.id', name='fk_usuario_turma_id'))
     ultimo_acesso = db.Column(db.DateTime)
+    # Ligado quando o administrador redefine a senha: o próximo login exige uma senha nova.
+    trocar_senha = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     criado_em = db.Column(db.DateTime, default=agora)
     atualizado_em = db.Column(db.DateTime, default=agora, onupdate=agora)
 
