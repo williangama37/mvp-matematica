@@ -3,12 +3,12 @@ from flask_login import current_user
 from flask_wtf import FlaskForm
 from app import db, estatisticas
 from app.models import (Usuario, Turma, Assunto, Questao, Alternativa, Teste, Tentativa, Resposta,
-                        OrientacaoPedagogica, PERFIL_PROFESSOR, PERFIL_ADMINISTRADOR, PERFIL_ALUNO,
-                        LETRAS_ALTERNATIVAS, NIVEIS_DIFICULDADE)
+                        OrientacaoPedagogica, GeracaoQuestao, PERFIL_PROFESSOR, PERFIL_ADMINISTRADOR,
+                        PERFIL_ALUNO, LETRAS_ALTERNATIVAS, NIVEIS_DIFICULDADE)
 from app.forms import (FormularioTurma, FormularioAdicionarAluno, FormularioAssunto, FormularioQuestao,
                        FormularioTeste)
 from app.decoradores import perfil_requerido
-from app.agentes import gerador_questao, feedback_turma, classificacao
+from app.agentes import gerador_questao, feedback_turma, classificacao, execucao
 
 bp = Blueprint('professor', __name__)
 
@@ -246,7 +246,9 @@ def nova_questao():
 @bp.route('/questoes/gerar', methods=['POST'])
 @perfil_requerido(PERFIL_PROFESSOR)
 def gerar_questao():
-    """Pede ao agente uma sugestão de questão. Não salva nada: o professor revisa e salva pelo formulário."""
+    """Inicia a geração de uma sugestão de questão em segundo plano e responde na hora.
+    A página consulta status_geracao_questao até a sugestão ficar pronta. Nada é salvo como questão:
+    o professor revisa e salva pelo formulário."""
     dados = request.get_json(silent=True) or {}
     assunto_id = str(dados.get('assunto_id', ''))
     assunto = db.session.get(Assunto, int(assunto_id)) if assunto_id.isdigit() else None
@@ -258,14 +260,28 @@ def gerar_questao():
     habilidade_bncc = (dados.get('habilidade_bncc') or '').strip()[:20] or None
 
     try:
-        sugestao = gerador_questao.gerar_questao(assunto.nome, assunto.descricao, nivel_dificuldade, habilidade_bncc)
-    except gerador_questao.ErroGeracao as erro:
-        current_app.logger.error('Falha ao gerar questão com o agente: %s', erro)
-        return jsonify(erro=str(erro)), 502
+        registro = gerador_questao.agendar(current_user.id, assunto, nivel_dificuldade, habilidade_bncc)
     except Exception:
-        current_app.logger.exception('Falha ao gerar questão com o agente.')
-        return jsonify(erro='Não foi possível gerar a questão agora. Tente novamente.'), 502
-    return jsonify(sugestao)
+        db.session.rollback()
+        current_app.logger.exception('Falha ao iniciar a geração de questão.')
+        registro = None
+    if registro is None:
+        return jsonify(erro='Não foi possível iniciar a geração agora. Tente novamente.'), 500
+    return jsonify(url_status=url_for('professor.status_geracao_questao', geracao_id=registro.id)), 202
+
+
+@bp.route('/questoes/gerar/<int:geracao_id>')
+@perfil_requerido(PERFIL_PROFESSOR)
+def status_geracao_questao(geracao_id):
+    """Situação da geração, lida do banco (nunca chama o agente)."""
+    registro = db.get_or_404(GeracaoQuestao, geracao_id)
+    if registro.professor_id != current_user.id:
+        abort(404)
+    if execucao.pendente_expirado(registro):
+        execucao.marcar_erro(registro)
+    if registro.com_erro:
+        return jsonify(status=registro.status, erro='Não foi possível gerar a questão agora. Tente novamente.')
+    return jsonify(status=registro.status, sugestao=registro.resultado)
 
 
 @bp.route('/questoes/<int:questao_id>/editar', methods=['GET', 'POST'])

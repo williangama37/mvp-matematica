@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request
 from flask_login import current_user
 from app import db
-from app.models import Usuario, Turma, Questao, Teste, PERFIS, PERFIL_ADMINISTRADOR, PERFIL_PROFESSOR, PERFIL_ALUNO
+from app.models import (Usuario, Turma, Questao, Teste, GeracaoQuestao, PERFIS, PERFIL_ADMINISTRADOR, PERFIL_PROFESSOR,
+                        PERFIL_ALUNO)
 from app.forms import FormularioUsuarioAdmin, FormularioRedefinirSenha
 from app.decoradores import perfil_requerido
 
@@ -98,6 +99,7 @@ def excluir_usuario(usuario_id):
     Questao.query.filter_by(criado_por=usuario.id).update({'criado_por': None})
     Questao.query.filter_by(atualizado_por=usuario.id).update({'atualizado_por': None})
     Teste.query.filter_by(criado_por=usuario.id).update({'criado_por': None})
+    GeracaoQuestao.query.filter_by(professor_id=usuario.id).delete()
     db.session.delete(usuario)
     db.session.commit()
     flash('Usuário excluído.', 'success')

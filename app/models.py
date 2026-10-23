@@ -367,3 +367,20 @@ class FeedbackTurma(RegistroAgenteMixin, db.Model):
     @property
     def nome_gatilho(self):
         return GATILHOS.get(self.gatilho, self.gatilho)
+
+
+class GeracaoQuestao(RegistroAgenteMixin, db.Model):
+    """Sugestão de questão pedida ao agente pelo professor. Roda em segundo plano porque a resposta
+    pode passar do limite de 30s por requisição do Heroku; a página consulta o status até ficar pronta.
+    Nada vira Questao até o professor revisar e salvar o formulário."""
+    __tablename__ = 'geracao_questao'
+    __table_args__ = (
+        db.CheckConstraint(f"status IN {STATUS_AGENTE}", name='ck_geracao_questao_status'),
+    )
+    COLUNA_ENTRADA = 'pedido_json'
+
+    id = db.Column(db.Integer, primary_key=True)
+    professor_id = db.Column(db.Integer, db.ForeignKey('usuario.id', name='fk_geracao_questao_professor_id',
+                                                       ondelete='CASCADE'),
+                             nullable=False)
+    pedido_json = db.Column(db.Text, nullable=False)

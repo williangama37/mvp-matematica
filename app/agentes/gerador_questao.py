@@ -1,7 +1,8 @@
 """Agente que sugere uma questão de múltipla escolha ao professor.
 
 O agente apenas devolve a sugestão; quem decide salvar no banco é o professor,
-ao revisar e enviar o formulário de questão."""
+ao revisar e enviar o formulário de questão. A geração roda em segundo plano (execucao.py)
+e a sugestão fica em GeracaoQuestao até a página buscá-la."""
 import os
 from typing import List, Literal
 
@@ -11,7 +12,8 @@ from agno.models.google import Gemini
 from agno.run.base import RunStatus
 from pydantic import BaseModel, Field
 
-from app.models import NIVEIS_DIFICULDADE, TIPOS_ERRO, LETRAS_ALTERNATIVAS
+from app.agentes import execucao
+from app.models import NIVEIS_DIFICULDADE, TIPOS_ERRO, LETRAS_ALTERNATIVAS, STATUS_PENDENTE, GeracaoQuestao
 
 
 class ErroGeracao(Exception):
@@ -84,7 +86,7 @@ def _normalizar_tipo_erro(tipo_erro):
 
 
 def gerar_questao(assunto, descricao_assunto, nivel_dificuldade, habilidade_bncc=None):
-    """Retorna um dicionário com a questão sugerida, no formato do FormularioQuestao."""
+    """Retorna (questão sugerida no formato do FormularioQuestao, id do modelo que respondeu)."""
     pedido = [
         f'Assunto: {assunto}',
         f'Descrição do assunto: {descricao_assunto or "—"}',
@@ -106,7 +108,7 @@ def gerar_questao(assunto, descricao_assunto, nivel_dificuldade, habilidade_bncc
     if sorted(alternativas) != LETRAS_ALTERNATIVAS:
         raise ErroGeracao('O agente não devolveu as 4 alternativas esperadas.')
 
-    return {
+    sugestao = {
         'enunciado': questao.enunciado,
         'alternativa_correta': questao.alternativa_correta,
         'alternativas': [
@@ -120,3 +122,26 @@ def gerar_questao(assunto, descricao_assunto, nivel_dificuldade, habilidade_bncc
             for letra in LETRAS_ALTERNATIVAS
         ],
     }
+    return sugestao, resposta.model or _criar_modelo().id
+
+
+def _gerar(pedido):
+    return gerar_questao(**pedido)
+
+
+def agendar(professor_id, assunto, nivel_dificuldade, habilidade_bncc=None):
+    """Salva o pedido como 'pendente' e dispara o agente em segundo plano. Retorna o registro,
+    que a página consulta até o status virar 'pronto' (com a sugestão) ou 'erro'."""
+    # As sugestões anteriores já foram entregues à página; só as pendentes ainda estão em uso.
+    GeracaoQuestao.query.filter(GeracaoQuestao.professor_id == professor_id,
+                                GeracaoQuestao.status != STATUS_PENDENTE).delete()
+    pedido = {
+        'assunto': assunto.nome,
+        'descricao_assunto': assunto.descricao,
+        'nivel_dificuldade': nivel_dificuldade,
+        'habilidade_bncc': habilidade_bncc,
+    }
+    registro = execucao.criar_registro(GeracaoQuestao, pedido, professor_id=professor_id)
+    if registro is not None:
+        execucao.iniciar_em_segundo_plano(GeracaoQuestao, registro.id, _gerar)
+    return registro

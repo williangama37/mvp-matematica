@@ -85,8 +85,25 @@
 	atualizarAlternativas();
 
 	// Pede ao agente uma sugestão e preenche o formulário. Nada é salvo até o professor clicar em "Salvar questão".
+	// A geração roda em segundo plano no servidor: a página consulta o status até a sugestão ficar pronta.
 	const botaoGerar = document.getElementById('botao-gerar-questao');
 	const statusGerar = document.getElementById('status-gerar-questao');
+	const INTERVALO_CONSULTA = 2500;
+	const LIMITE_ESPERA = 6 * 60 * 1000;
+
+	async function aguardarSugestao(urlStatus) {
+		const inicio = Date.now();
+		while (Date.now() - inicio < LIMITE_ESPERA) {
+			await new Promise((resolver) => setTimeout(resolver, INTERVALO_CONSULTA));
+			const resposta = await fetch(urlStatus, { headers: { Accept: 'application/json' } });
+			if (!resposta.ok) continue; // falha momentânea de rede ou do servidor: tenta de novo
+			const dados = await resposta.json().catch(() => ({}));
+			if (dados.status === 'pronto') return dados.sugestao;
+			if (dados.status === 'erro') throw new Error(dados.erro || 'Erro ao gerar a questão.');
+		}
+		throw new Error('A geração está demorando mais que o esperado. Tente novamente.');
+	}
+
 	botaoGerar.addEventListener('click', async function () {
 		const enunciado = document.getElementById('enunciado');
 		if (enunciado.value.trim() && !confirm('Substituir o enunciado e as alternativas atuais pela sugestão do agente?')) {
@@ -108,8 +125,9 @@
 					habilidade_bncc: document.getElementById('habilidade_bncc').value,
 				}),
 			});
-			const dados = await resposta.json().catch(() => ({}));
-			if (!resposta.ok) throw new Error(dados.erro || 'Erro ao gerar a questão.');
+			const pedido = await resposta.json().catch(() => ({}));
+			if (!resposta.ok) throw new Error(pedido.erro || 'Erro ao gerar a questão.');
+			const dados = await aguardarSugestao(pedido.url_status);
 
 			enunciado.value = dados.enunciado;
 			dados.alternativas.forEach(function (alternativa, indice) {
