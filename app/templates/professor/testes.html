@@ -1,7 +1,11 @@
-{% extends 'base.html' %} {% block title %}Testes{% endblock %} {% block content %}
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import gerar_teste_automatico %}
+{% block title %}Testes{% endblock %} {% block content %}
 <div class="cabecalho-pagina">
 	<h1>Testes diagnósticos</h1>
-	<a href="{{ url_for('professor.novo_teste') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Novo teste</a>
+	<div class="d-flex flex-wrap" style="gap: 8px">
+		{{ gerar_teste_automatico(turmas) }}
+		<a href="{{ url_for('professor.novo_teste') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Novo teste</a>
+	</div>
 </div>
 
 <div class="cartao">

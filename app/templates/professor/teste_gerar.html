@@ -1,11 +1,11 @@
 {% extends 'base.html' %} {% from 'compartilhado/_macros.html' import campo %}
-{% block title %}Gerar teste — {{ turma.descricao }}{% endblock %} {% block content %}
+{% block title %}Gerar teste automático{% endblock %} {% block content %}
 <div class="cabecalho-pagina">
 	<div>
 		<h1>Gerar teste automático</h1>
-		<div class="text-muted">Turma {{ turma.descricao }}</div>
+		<div class="text-muted">Para {{ destino }}{% if not turma %} (todos os alunos do sistema){% endif %}</div>
 	</div>
-	<a href="{{ url_for('professor.detalhe_turma', turma_id=turma.id) }}" class="btn btn-secondary">Voltar</a>
+	<a href="{{ url_for('professor.detalhe_turma', turma_id=turma.id) if turma else url_for('professor.testes') }}" class="btn btn-secondary">Voltar</a>
 </div>
 
 <form method="POST" id="formGerar">
@@ -111,7 +111,7 @@
 			<small class="text-muted d-block">As questões são as mesmas para todos (as estatísticas não mudam); só a ordem muda de um aluno para outro.</small>
 		</div>
 		<button type="submit" name="acao" value="salvar" class="btn btn-success">
-			<i class="fas fa-check"></i> Salvar e publicar para a turma
+			<i class="fas fa-check"></i> Salvar e publicar para {{ 'a turma' if turma else 'todas as turmas' }}
 		</button>
 	</div>
 	{% endif %}

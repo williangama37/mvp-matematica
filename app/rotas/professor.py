@@ -349,7 +349,8 @@ def _preparar_formulario_teste(form):
 @perfil_requerido(PERFIL_PROFESSOR)
 def testes():
     lista_testes = Teste.query.order_by(Teste.criado_em.desc()).all()
-    return render_template('professor/testes.html', testes=lista_testes, form=FlaskForm())
+    return render_template('professor/testes.html', testes=lista_testes, form=FlaskForm(),
+                           turmas=Turma.query.order_by(Turma.ano_letivo.desc(), Turma.nome).all())
 
 
 @bp.route('/testes/novo', methods=['GET', 'POST'])
@@ -373,21 +374,34 @@ def novo_teste():
         flash('Teste criado.', 'success')
         return redirect(url_for('professor.testes'))
 
-    return render_template('professor/teste_form.html', form=form, titulo='Novo teste', questoes=questoes_ativas)
+    return render_template('professor/teste_form.html', form=form, titulo='Novo teste', questoes=questoes_ativas,
+                           turmas=Turma.query.order_by(Turma.ano_letivo.desc(), Turma.nome).all())
 
 
+@bp.route('/testes/gerar')
+@perfil_requerido(PERFIL_PROFESSOR)
+def escolher_turma_gerar_teste():
+    turma_id = request.args.get('turma_id', type=int)
+    if turma_id is not None:
+        return redirect(url_for('professor.gerar_teste', turma_id=turma_id))
+    flash('Selecione a turma (ou todas as turmas) para gerar o teste.', 'warning')
+    return redirect(url_for('professor.novo_teste'))
+
+
+@bp.route('/testes/gerar-automatico', methods=['GET', 'POST'], defaults={'turma_id': 0})
 @bp.route('/turmas/<int:turma_id>/gerar-teste', methods=['GET', 'POST'])
 @perfil_requerido(PERFIL_PROFESSOR)
 def gerar_teste(turma_id):
     """Teste montado por sorteio. A prévia fica na própria página (campos 'questao', na ordem exibida):
     sortear tudo, trocar uma questão e salvar reenviam o formulário, e nada é gravado antes de o
-    professor confirmar."""
-    turma = db.get_or_404(Turma, turma_id)
+    professor confirmar. turma_id 0 = todas as turmas, como no cadastro manual."""
+    turma = db.get_or_404(Turma, turma_id) if turma_id else None
+    destino = f'a turma {turma.descricao}' if turma else 'todas as turmas'
     form = FormularioGerarTeste()
     form.assuntos.choices = [(assunto.id, assunto.nome) for assunto in Assunto.query.order_by(Assunto.nome).all()]
     if 'titulo' not in request.form:
         # A seção de confirmação só aparece com a prévia: até lá, valem os valores padrão.
-        form.titulo.data = f'Diagnóstico — {turma.descricao}'
+        form.titulo.data = f'Diagnóstico — {turma.descricao}' if turma else 'Diagnóstico'
         form.ativo.data = True
         form.embaralhar_questoes.data = True
 
@@ -430,7 +444,7 @@ def gerar_teste(turma_id):
                 teste = Teste(
                     titulo=form.titulo.data,
                     descricao=form.descricao.data,
-                    turma_id=turma.id,
+                    turma_id=turma.id if turma else None,
                     ativo=form.ativo.data,
                     embaralhar_questoes=form.embaralhar_questoes.data,
                     criado_por=current_user.id,
@@ -438,10 +452,10 @@ def gerar_teste(turma_id):
                 )
                 db.session.add(teste)
                 db.session.commit()
-                flash(f'Teste criado com {len(previa)} questões para a turma {turma.descricao}.', 'success')
+                flash(f'Teste criado com {len(previa)} questões para {destino}.', 'success')
                 return redirect(url_for('professor.testes'))
 
-    return render_template('professor/teste_gerar.html', form=form, turma=turma, previa=previa,
+    return render_template('professor/teste_gerar.html', form=form, turma=turma, destino=destino, previa=previa,
                            questoes_ativas=questoes_ativas, disponibilidade=sorteio.disponibilidade(),
                            niveis=NIVEIS_DIFICULDADE)
 

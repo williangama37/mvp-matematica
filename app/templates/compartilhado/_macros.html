@@ -31,6 +31,19 @@
 <div class="vazio"><i class="far fa-chart-bar"></i>{{ texto }}</div>
 {%- endmacro %}
 
+{# Atalho para o teste gerado por sorteio: escolhe a turma (ou todas) e abre a tela de geração. #}
+{% macro gerar_teste_automatico(turmas) -%}
+<form action="{{ url_for('professor.escolher_turma_gerar_teste') }}" method="get" class="form-inline" style="gap: 6px">
+	<label for="turmaGerar" class="sr-only">Turma</label>
+	<select id="turmaGerar" name="turma_id" class="form-control" required>
+		<option value="">Turma…</option>
+		<option value="0">Todas as turmas</option>
+		{% for turma in turmas %}<option value="{{ turma.id }}">{{ turma.descricao }}</option>{% endfor %}
+	</select>
+	<button type="submit" class="btn btn-outline-primary"><i class="fas fa-random"></i> Gerar teste automático</button>
+</form>
+{%- endmacro %}
+
 {% macro campo(field, classe='form-control') -%}
 <div class="form-group">
 	{{ field.label(class="font-weight-bold") }}

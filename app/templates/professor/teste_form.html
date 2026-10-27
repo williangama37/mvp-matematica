@@ -1,8 +1,11 @@
-{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import campo %}
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import campo, gerar_teste_automatico %}
 {% block title %}{{ titulo }}{% endblock %} {% block content %}
 <div class="cabecalho-pagina">
 	<h1>{{ titulo }}</h1>
-	<a href="{{ url_for('professor.testes') }}" class="btn btn-secondary">Voltar</a>
+	<div class="d-flex flex-wrap" style="gap: 8px">
+		{% if not teste %}{{ gerar_teste_automatico(turmas) }}{% endif %}
+		<a href="{{ url_for('professor.testes') }}" class="btn btn-secondary">Voltar</a>
+	</div>
 </div>
 
 <form method="POST">
