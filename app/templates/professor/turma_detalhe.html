@@ -5,6 +5,7 @@
 		<div class="text-muted">Professor responsável: {{ turma.professor.nome_completo if turma.professor else '—' }}</div>
 	</div>
 	<div>
+		<a href="{{ url_for('professor.gerar_teste', turma_id=turma.id) }}" class="btn btn-primary"><i class="fas fa-random"></i> Gerar teste automático</a>
 		<a href="{{ url_for('professor.dashboard', turma_id=turma.id) }}" class="btn btn-outline-primary"><i class="fas fa-chart-line"></i> Dashboard da turma</a>
 		<a href="{{ url_for('professor.turmas') }}" class="btn btn-secondary">Voltar</a>
 	</div>

@@ -13,7 +13,10 @@
 		<div class="form-row">
 			<div class="col-md-6">{{ campo(form.turma_id) }}</div>
 			<div class="col-md-6 d-flex align-items-center">
-				<div class="form-check">{{ form.ativo(class="form-check-input") }} {{ form.ativo.label(class="form-check-label") }}</div>
+				<div>
+					<div class="form-check">{{ form.ativo(class="form-check-input") }} {{ form.ativo.label(class="form-check-label") }}</div>
+					<div class="form-check">{{ form.embaralhar_questoes(class="form-check-input") }} {{ form.embaralhar_questoes.label(class="form-check-label") }}</div>
+				</div>
 			</div>
 		</div>
 	</div>

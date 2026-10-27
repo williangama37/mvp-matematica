@@ -33,6 +33,10 @@ def adicionar_colunas_novas():
     if 'trocar_senha' not in colunas_usuario:
         with db.engine.begin() as conexao:
             conexao.execute(text('ALTER TABLE usuario ADD COLUMN trocar_senha BOOLEAN NOT NULL DEFAULT FALSE'))
+    colunas_teste = {coluna['name'] for coluna in inspect(db.engine).get_columns('teste')}
+    if 'embaralhar_questoes' not in colunas_teste:
+        with db.engine.begin() as conexao:
+            conexao.execute(text('ALTER TABLE teste ADD COLUMN embaralhar_questoes BOOLEAN NOT NULL DEFAULT FALSE'))
 
 
 def criar_administrador_padrao(app):

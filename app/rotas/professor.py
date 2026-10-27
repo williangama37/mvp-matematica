@@ -1,12 +1,12 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, abort
 from flask_login import current_user
 from flask_wtf import FlaskForm
-from app import db, estatisticas
+from app import db, estatisticas, sorteio
 from app.models import (Usuario, Turma, Assunto, Questao, Alternativa, Teste, Tentativa, Resposta,
                         OrientacaoPedagogica, GeracaoQuestao, PERFIL_PROFESSOR, PERFIL_ADMINISTRADOR,
                         PERFIL_ALUNO, LETRAS_ALTERNATIVAS, NIVEIS_DIFICULDADE)
 from app.forms import (FormularioTurma, FormularioAdicionarAluno, FormularioAssunto, FormularioQuestao,
-                       FormularioTeste)
+                       FormularioTeste, FormularioGerarTeste)
 from app.decoradores import perfil_requerido
 from app.agentes import gerador_questao, feedback_turma, classificacao, execucao
 
@@ -364,6 +364,7 @@ def novo_teste():
             descricao=form.descricao.data,
             turma_id=form.turma_id.data or None,
             ativo=form.ativo.data,
+            embaralhar_questoes=form.embaralhar_questoes.data,
             criado_por=current_user.id,
             questoes=Questao.query.filter(Questao.id.in_(form.questoes.data)).all(),
         )
@@ -373,6 +374,76 @@ def novo_teste():
         return redirect(url_for('professor.testes'))
 
     return render_template('professor/teste_form.html', form=form, titulo='Novo teste', questoes=questoes_ativas)
+
+
+@bp.route('/turmas/<int:turma_id>/gerar-teste', methods=['GET', 'POST'])
+@perfil_requerido(PERFIL_PROFESSOR)
+def gerar_teste(turma_id):
+    """Teste montado por sorteio. A prévia fica na própria página (campos 'questao', na ordem exibida):
+    sortear tudo, trocar uma questão e salvar reenviam o formulário, e nada é gravado antes de o
+    professor confirmar."""
+    turma = db.get_or_404(Turma, turma_id)
+    form = FormularioGerarTeste()
+    form.assuntos.choices = [(assunto.id, assunto.nome) for assunto in Assunto.query.order_by(Assunto.nome).all()]
+    if 'titulo' not in request.form:
+        # A seção de confirmação só aparece com a prévia: até lá, valem os valores padrão.
+        form.titulo.data = f'Diagnóstico — {turma.descricao}'
+        form.ativo.data = True
+        form.embaralhar_questoes.data = True
+
+    questoes_ativas = Questao.query.filter_by(ativa=True).join(Assunto).order_by(Assunto.nome, Questao.id).all()
+    por_id = {questao.id: questao for questao in questoes_ativas}
+    previa = []
+    for questao_id in request.form.getlist('questao', type=int):
+        if questao_id in por_id and por_id[questao_id] not in previa:
+            previa.append(por_id[questao_id])
+
+    acao, _, posicao = request.form.get('acao', '').partition(':')
+    if form.validate_on_submit():
+        if acao == 'sortear':
+            try:
+                previa = sorteio.sortear(form.assuntos.data, form.quantidade.data, form.distribuicao)
+            except sorteio.SorteioImpossivel as erro:
+                flash(str(erro), 'warning')
+        elif acao in ('trocar', 'escolher') and posicao.isdigit() and int(posicao) < len(previa):
+            indice = int(posicao)
+            atual = previa[indice]
+            em_uso = [questao.id for questao in previa]
+            if acao == 'trocar':
+                nova = sorteio.substituta(atual, em_uso)
+                if nova is None:
+                    flash(f'Não há outra questão ativa de {atual.assunto.nome} ({atual.nome_dificuldade.lower()}) '
+                          f'para trocar a questão {indice + 1}.', 'warning')
+            else:
+                nova = por_id.get(request.form.get(f'escolha_{indice}', type=int))
+                if nova is None or nova.id in em_uso:
+                    nova = None
+                    flash('Escolha uma questão que ainda não esteja no teste.', 'warning')
+            if nova:
+                previa[indice] = nova
+        elif acao == 'salvar':
+            if not form.titulo.data:
+                form.titulo.errors.append('Informe o título do teste.')
+            elif not previa:
+                flash('Sorteie as questões antes de salvar.', 'warning')
+            else:
+                teste = Teste(
+                    titulo=form.titulo.data,
+                    descricao=form.descricao.data,
+                    turma_id=turma.id,
+                    ativo=form.ativo.data,
+                    embaralhar_questoes=form.embaralhar_questoes.data,
+                    criado_por=current_user.id,
+                    questoes=previa,
+                )
+                db.session.add(teste)
+                db.session.commit()
+                flash(f'Teste criado com {len(previa)} questões para a turma {turma.descricao}.', 'success')
+                return redirect(url_for('professor.testes'))
+
+    return render_template('professor/teste_gerar.html', form=form, turma=turma, previa=previa,
+                           questoes_ativas=questoes_ativas, disponibilidade=sorteio.disponibilidade(),
+                           niveis=NIVEIS_DIFICULDADE)
 
 
 @bp.route('/testes/<int:teste_id>/editar', methods=['GET', 'POST'])
@@ -394,6 +465,7 @@ def editar_teste(teste_id):
         teste.descricao = form.descricao.data
         teste.turma_id = form.turma_id.data or None
         teste.ativo = form.ativo.data
+        teste.embaralhar_questoes = form.embaralhar_questoes.data
         if not teste.tentativas:
             teste.questoes = Questao.query.filter(Questao.id.in_(form.questoes.data)).all()
         db.session.commit()

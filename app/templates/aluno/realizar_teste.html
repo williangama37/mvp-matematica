@@ -14,9 +14,9 @@
 
 <form method="POST" onsubmit="return confirm('Enviar as respostas? Não será possível alterar depois.')">
 	{{ form.hidden_tag() }}
-	{% for questao in teste.questoes %}
+	{% for questao in questoes %}
 	<fieldset class="cartao">
-		<legend class="h6 font-weight-bold">Questão {{ loop.index }} de {{ teste.questoes|length }}</legend>
+		<legend class="h6 font-weight-bold">Questão {{ loop.index }} de {{ questoes|length }}</legend>
 		<p class="enunciado">{{ questao.enunciado }}</p>
 		{% for alternativa in questao.alternativas %}
 		<label class="opcao-resposta">

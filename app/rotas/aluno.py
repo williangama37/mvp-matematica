@@ -50,11 +50,12 @@ def realizar_teste(teste_id):
         flash('Você já realizou este teste. Veja o seu resultado.', 'info')
         return redirect(url_for('aluno.resultado', tentativa_id=tentativa_anterior.id))
 
+    questoes = teste.questoes_do_aluno(current_user.id)
     form = FlaskForm()
     if form.validate_on_submit():
-        tentativa = Tentativa(teste_id=teste.id, aluno_id=current_user.id, total_questoes=len(teste.questoes))
+        tentativa = Tentativa(teste_id=teste.id, aluno_id=current_user.id, total_questoes=len(questoes))
         acertos = 0
-        for questao in teste.questoes:
+        for questao in questoes:
             alternativa_id = request.form.get(f'questao_{questao.id}', type=int)
             alternativa = db.session.get(Alternativa, alternativa_id) if alternativa_id else None
             if alternativa and alternativa.questao_id != questao.id:
@@ -72,7 +73,7 @@ def realizar_teste(teste_id):
         flash('Teste enviado! Confira o seu resultado.', 'success')
         return redirect(url_for('aluno.resultado', tentativa_id=tentativa.id))
 
-    return render_template('aluno/realizar_teste.html', teste=teste, form=form)
+    return render_template('aluno/realizar_teste.html', teste=teste, questoes=questoes, form=form)
 
 
 @bp.route('/resultados/<int:tentativa_id>')

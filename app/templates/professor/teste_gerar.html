@@ -1,0 +1,128 @@
+{% extends 'base.html' %} {% from 'compartilhado/_macros.html' import campo %}
+{% block title %}Gerar teste — {{ turma.descricao }}{% endblock %} {% block content %}
+<div class="cabecalho-pagina">
+	<div>
+		<h1>Gerar teste automático</h1>
+		<div class="text-muted">Turma {{ turma.descricao }}</div>
+	</div>
+	<a href="{{ url_for('professor.detalhe_turma', turma_id=turma.id) }}" class="btn btn-secondary">Voltar</a>
+</div>
+
+<form method="POST" id="formGerar">
+	{{ form.hidden_tag() }}
+	{% for questao in previa %}<input type="hidden" name="questao" value="{{ questao.id }}" />{% endfor %}
+
+	<div class="cartao">
+		<h3>1. Parâmetros do sorteio</h3>
+		<p class="subtitulo">O sistema sorteia questões ativas do banco e mostra uma prévia. Nada é salvo antes da sua confirmação.</p>
+		<div class="form-row">
+			<div class="col-md-3">{{ campo(form.quantidade, min=1, max=50) }}</div>
+			<div class="col-md-9">
+				<div class="form-group">
+					<span class="font-weight-bold d-block">Distribuição por dificuldade (opcional)</span>
+					<div class="form-row">
+						{% for campo_nivel in [form.qtd_facil, form.qtd_medio, form.qtd_dificil] %}
+						<div class="col">
+							{{ campo_nivel.label(class="small mb-0") }}
+							{{ campo_nivel(class="form-control" + (" is-invalid" if campo_nivel.errors else ""), min=0, placeholder="—") }}
+						</div>
+						{% endfor %}
+					</div>
+					<small class="text-muted">Deixe em branco para sortear qualquer dificuldade. Se preencher, a soma deve ser igual à quantidade.</small>
+				</div>
+			</div>
+		</div>
+
+		<span class="font-weight-bold d-block mb-1">Assuntos</span>
+		{% for erro in form.assuntos.errors %}<div class="alert alert-danger py-2">{{ erro }}</div>{% endfor %}
+		{% set marcados = form.assuntos.data or [] %}
+		<div class="lista-questoes-teste mb-3">
+			{% for valor, nome in form.assuntos.choices %}
+			{% set contagem = disponibilidade.get(valor) %}
+			<label>
+				<input type="checkbox" name="{{ form.assuntos.name }}" value="{{ valor }}" {{ 'checked' if valor in marcados }} />
+				<span>{{ nome }}
+					<span class="text-muted small">
+						{% if contagem %}· {% for nivel, rotulo in niveis.items() %}{{ contagem[nivel] }} {{ rotulo|lower }}{{ ' · ' if not loop.last }}{% endfor %}
+						{% else %}· nenhuma questão ativa{% endif %}
+					</span>
+				</span>
+			</label>
+			{% endfor %}
+		</div>
+		<button type="submit" name="acao" value="sortear" class="btn btn-primary">
+			<i class="fas fa-random"></i> {{ 'Sortear tudo de novo' if previa else 'Sortear questões' }}
+		</button>
+	</div>
+
+	{% if previa %}
+	<div class="cartao">
+		<h3>2. Prévia ({{ previa|length }} questões)</h3>
+		<p class="subtitulo">
+			{% for nivel, rotulo in niveis.items() %}{{ previa|selectattr('nivel_dificuldade', 'equalto', nivel)|list|length }} {{ rotulo|lower }}{{ ' · ' if not loop.last }}{% endfor %}.
+			Revise cada questão: você pode sortear outra do mesmo assunto e dificuldade ou escolher uma manualmente.
+		</p>
+	</div>
+
+	{% set em_uso = previa|map(attribute='id')|list %}
+	{% for questao in previa %}
+	{% set indice = loop.index0 %}
+	<div class="cartao">
+		<div class="d-flex justify-content-between flex-wrap mb-2">
+			<strong>Questão {{ loop.index }}</strong>
+			<span><span class="selo">{{ questao.assunto.nome }}</span> <span class="selo">{{ questao.nome_dificuldade }}</span>
+				{% if questao.habilidade_bncc %}<span class="selo">{{ questao.habilidade_bncc }}</span>{% endif %}</span>
+		</div>
+		<p class="enunciado">{{ questao.enunciado }}</p>
+		{% for alternativa in questao.alternativas %}
+		<div class="opcao-resposta {{ 'resposta-certa' if alternativa.correta }}" style="cursor: default">
+			<strong>{{ alternativa.letra }})</strong>
+			<div>{{ alternativa.texto }}{% if alternativa.correta %} <span class="selo ml-1">correta</span>{% endif %}</div>
+		</div>
+		{% endfor %}
+		<div class="d-flex flex-wrap align-items-start mt-2" style="gap: 8px">
+			<button type="submit" name="acao" value="trocar:{{ indice }}" class="btn btn-sm btn-outline-primary">
+				<i class="fas fa-random"></i> Sortear outra ({{ questao.assunto.nome }}, {{ questao.nome_dificuldade|lower }})
+			</button>
+			<details class="flex-grow-1">
+				<summary class="btn btn-sm btn-outline-secondary">Escolher manualmente</summary>
+				<div class="d-flex mt-2" style="gap: 8px">
+					<select name="escolha_{{ indice }}" class="form-control form-control-sm">
+						{% for opcao in questoes_ativas if opcao.id not in em_uso %}
+						{% if loop.changed(opcao.assunto_id) %}{% if not loop.first %}</optgroup>{% endif %}<optgroup label="{{ opcao.assunto.nome }}">{% endif %}
+						<option value="{{ opcao.id }}" {{ 'selected' if opcao.assunto_id == questao.assunto_id and opcao.nivel_dificuldade == questao.nivel_dificuldade }}>
+							[{{ opcao.nome_dificuldade }}] {{ opcao.enunciado|truncate(110) }}</option>
+						{% if loop.last %}</optgroup>{% endif %}
+						{% endfor %}
+					</select>
+					<button type="submit" name="acao" value="escolher:{{ indice }}" class="btn btn-sm btn-primary text-nowrap">Usar esta</button>
+				</div>
+			</details>
+		</div>
+	</div>
+	{% endfor %}
+
+	<div class="cartao">
+		<h3>3. Confirmar e publicar</h3>
+		{{ campo(form.titulo) }}
+		{{ campo(form.descricao, rows=2) }}
+		<div class="form-check">{{ form.ativo(class="form-check-input") }} {{ form.ativo.label(class="form-check-label") }}</div>
+		<div class="form-check mb-3">{{ form.embaralhar_questoes(class="form-check-input") }} {{ form.embaralhar_questoes.label(class="form-check-label") }}
+			<small class="text-muted d-block">As questões são as mesmas para todos (as estatísticas não mudam); só a ordem muda de um aluno para outro.</small>
+		</div>
+		<button type="submit" name="acao" value="salvar" class="btn btn-success">
+			<i class="fas fa-check"></i> Salvar e publicar para a turma
+		</button>
+	</div>
+	{% endif %}
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+	// Enter num campo de texto acionaria o primeiro botão do formulário ("Sortear"), refazendo a prévia.
+	document.getElementById('formGerar').addEventListener('keydown', function (evento) {
+		if (evento.key === 'Enter' && evento.target.tagName === 'INPUT') evento.preventDefault();
+	});
+</script>
+{% endblock %}

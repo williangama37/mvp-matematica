@@ -53,9 +53,14 @@
 			{{ alternativa.texto }}
 			{% if alternativa.id == resposta.alternativa_id %}<span class="selo ml-1">resposta {{ 'do aluno' if mostrar_distratores else 'sua' }}</span>{% endif %}
 			{% if alternativa.correta %}<span class="selo ml-1">correta</span>{% endif %}
-			{% if mostrar_distratores and alternativa.id == resposta.alternativa_id and not alternativa.correta %}
+			{% if alternativa.id == resposta.alternativa_id and not alternativa.correta and alternativa.descricao_distrator %}
 			<div class="small mt-1">
+				{% if mostrar_distratores %}
 				<strong>Distrator ({{ alternativa.nome_tipo_erro }}):</strong> {{ alternativa.descricao_distrator }}
+				{% else %}
+				{# Para o aluno revisar: o raciocínio que leva a esta alternativa e onde ele falha. #}
+				<strong>Por que esta resposta está errada{% if alternativa.tipo_erro %} ({{ alternativa.nome_tipo_erro|lower }}){% endif %}:</strong> {{ alternativa.descricao_distrator }}
+				{% endif %}
 			</div>
 			{% endif %}
 		</div>

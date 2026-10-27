@@ -121,4 +121,35 @@ class FormularioTeste(FlaskForm):
     questoes = CampoMultiplaEscolha('Questões', coerce=int,
                                     validators=[DataRequired(message='Selecione ao menos uma questão.')])
     ativo = BooleanField('Disponível para os alunos', default=True)
+    embaralhar_questoes = BooleanField('Embaralhar a ordem das questões para cada aluno')
     enviar = SubmitField('Salvar teste')
+
+
+class FormularioGerarTeste(FlaskForm):
+    """Parâmetros do sorteio e dados do teste gerado automaticamente. As questões sorteadas
+    vão na própria página (campos 'questao'), para a prévia poder ser alterada antes de salvar."""
+    quantidade = IntegerField('Quantidade de questões', default=10,
+                              validators=[DataRequired(message='Informe a quantidade.'), NumberRange(min=1, max=50)])
+    assuntos = CampoMultiplaEscolha('Assuntos', coerce=int,
+                                    validators=[DataRequired(message='Selecione ao menos um assunto.')])
+    qtd_facil = IntegerField('Fáceis', validators=[Optional(), NumberRange(min=0)])
+    qtd_medio = IntegerField('Médias', validators=[Optional(), NumberRange(min=0)])
+    qtd_dificil = IntegerField('Difíceis', validators=[Optional(), NumberRange(min=0)])
+    titulo = StringField('Título', validators=[Optional(), Length(max=150)])
+    descricao = TextAreaField('Descrição / instruções', validators=[Optional()])
+    ativo = BooleanField('Disponível para os alunos', default=True)
+    embaralhar_questoes = BooleanField('Embaralhar a ordem das questões para cada aluno', default=True)
+
+    @property
+    def distribuicao(self):
+        """{nível: quantidade} quando o professor preencheu alguma dificuldade; senão None (qualquer nível)."""
+        valores = {'facil': self.qtd_facil.data, 'medio': self.qtd_medio.data, 'dificil': self.qtd_dificil.data}
+        if all(valor is None for valor in valores.values()):
+            return None
+        return {nivel: valor or 0 for nivel, valor in valores.items()}
+
+    def validate_quantidade(self, quantidade):
+        distribuicao = self.distribuicao
+        if distribuicao is not None and quantidade.data and sum(distribuicao.values()) != quantidade.data:
+            raise ValidationError(f'A distribuição por dificuldade soma {sum(distribuicao.values())}, '
+                                  f'mas a quantidade é {quantidade.data}.')

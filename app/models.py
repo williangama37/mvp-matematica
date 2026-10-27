@@ -1,4 +1,5 @@
 import json
+import random
 from datetime import datetime
 from app import db
 from flask_login import UserMixin
@@ -176,6 +177,8 @@ class Teste(db.Model):
     descricao = db.Column(db.Text)
     turma_id = db.Column(db.Integer, db.ForeignKey('turma.id', name='fk_teste_turma_id'))
     ativo = db.Column(db.Boolean, default=True)
+    # Cada aluno recebe as mesmas questões em outra ordem (dificulta copiar do colega).
+    embaralhar_questoes = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     criado_em = db.Column(db.DateTime, default=agora)
     atualizado_em = db.Column(db.DateTime, default=agora, onupdate=agora)
     criado_por = db.Column(db.Integer, db.ForeignKey('usuario.id', name='fk_teste_criado_por'))
@@ -185,6 +188,14 @@ class Teste(db.Model):
     questoes = db.relationship('Questao', secondary=teste_questao, lazy='subquery', order_by='Questao.id')
     tentativas = db.relationship('Tentativa', back_populates='teste', lazy=True, cascade='all, delete-orphan')
     analises = db.relationship('FeedbackTurma', back_populates='teste', lazy=True, cascade='all, delete-orphan')
+
+    def questoes_do_aluno(self, aluno_id):
+        """Ordem em que o aluno vê as questões. Embaralhada, a ordem depende só do teste e do aluno,
+        então recarregar a página não muda nada. As questões são as mesmas para todos."""
+        questoes = list(self.questoes)
+        if self.embaralhar_questoes:
+            random.Random(f'{self.id}:{aluno_id}').shuffle(questoes)
+        return questoes
 
 
 class Tentativa(db.Model):
@@ -200,7 +211,9 @@ class Tentativa(db.Model):
 
     teste = db.relationship('Teste', back_populates='tentativas')
     aluno = db.relationship('Usuario', back_populates='tentativas')
-    respostas = db.relationship('Resposta', back_populates='tentativa', lazy=True, cascade='all, delete-orphan')
+    # Gravadas na ordem em que o aluno viu as questões, então o resultado segue a mesma ordem.
+    respostas = db.relationship('Resposta', back_populates='tentativa', lazy=True, order_by='Resposta.id',
+                                cascade='all, delete-orphan')
     feedback = db.relationship('FeedbackAluno', back_populates='tentativa', uselist=False,
                                cascade='all, delete-orphan')
 
