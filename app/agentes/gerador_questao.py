@@ -56,7 +56,7 @@ INSTRUCOES = [
 def _criar_modelo():
     """Usa o Gemini se GOOGLE_API_KEY estiver no .env; senão, o Claude (ANTHROPIC_API_KEY)."""
     if os.getenv('GOOGLE_API_KEY'):
-        return Gemini(id='gemini-3.7-flash')
+        return Gemini(id='gemini-3.7-flash-lite')
     return Claude(
         id='claude-opus-5-5',
         max_tokens=16000,
