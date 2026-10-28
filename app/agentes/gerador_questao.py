@@ -49,7 +49,12 @@ INSTRUCOES = [
     'Na alternativa correta, deixe descricao_distrator e tipo_erro vazios.',
     'Confira os cálculos: a alternativa correta precisa estar certa e nenhum distrator pode ser equivalente a ela.',
     'Ajuste a complexidade ao nível de dificuldade pedido. Se uma habilidade da BNCC for informada, a questão deve '
-    'avaliá-la. Use notação matemática em texto simples (ex.: 3/4, x², √2), sem LaTeX.',
+    'avaliá-la.',
+    # raw string: sem ela, o Python leria \f de \frac e \t de \to como caracteres de controle.
+    'Use texto simples para notação curta (ex.: 3/4, x², √2). Para expressões que ficam ilegíveis em texto, como '
+    'frações compostas, limites, raízes de expressões e somatórios, use LaTeX delimitado exclusivamente por $$...$$ '
+    r'(ex.: $$\frac{x^2-4}{x-2}$$, $$\lim_{x \to 2} f(x)$$). Nunca use $...$, \(...\) ou \[...\]. '
+    'Mantenha o mesmo formato em todas as alternativas da questão.',
 ]
 
 
@@ -72,6 +77,8 @@ def _criar_agente():
         name='Gerador de questões',
         model=_criar_modelo(),
         instructions=INSTRUCOES,
+        # Sem variáveis de estado nas instruções: desligar o template do Agno evita que ele troque $$ por $.
+        resolve_in_context=False,
         # Erros temporários (ex.: 503 "alta demanda") costumam passar em segundos: tenta de novo após 2s e 4s.
         retries=2,
         delay_between_retries=2,
