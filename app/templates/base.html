@@ -8,6 +8,10 @@
 		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" />
 		<link rel="stylesheet" href="{{ url_for('static', filename='estilo.css') }}" />
 		<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+		{# KaTeX: renderiza as fórmulas em LaTeX ($$...$$) digitadas nas questões. #}
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+		<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+		<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 	</head>
 	<body>
 		{% macro item_menu(endpoint, icone, texto) -%}
@@ -62,6 +66,16 @@
 			{% block content %}{% endblock %}
 		</main>
 
+		<script>
+			document.addEventListener('DOMContentLoaded', function () {
+				renderMathInElement(document.getElementById('conteudo'), {
+					// Só $$...$$, para não confundir com valores em reais (R$).
+					delimiters: [{ left: '$$', right: '$$', display: false }],
+					ignoredTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code', 'option'],
+					throwOnError: false,
+				});
+			});
+		</script>
 		<script src="{{ url_for('static', filename='graficos.js') }}"></script>
 		{% block scripts %}{% endblock %}
 	</body>
