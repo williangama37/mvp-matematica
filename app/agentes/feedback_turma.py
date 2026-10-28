@@ -87,7 +87,8 @@ INSTRUCOES = [
     'Quando amostra_pequena for verdadeiro, a competência foi avaliada por poucas questões neste teste (menos que '
     'min_questoes): a classificação de cada aluno nela é instável. Trate os números dela como indício, não baseie '
     'sozinha uma prioridade alta nela e registre essa limitação em pontos_de_atencao.',
-    'Use notação matemática em texto simples (ex.: x², √2, 3/4), sem LaTeX.',
+    'Use notação matemática em texto simples (ex.: x², √2, 3/4). Ao citar uma expressão de enunciado ou '
+    'alternativa que esteja em LaTeX, mantenha-a exatamente como recebida, com os delimitadores $$...$$.',
 ]
 
 
@@ -96,6 +97,8 @@ def _criar_agente():
         name='Análise da turma',
         model=comum.criar_modelo(),
         instructions=INSTRUCOES,
+        # Sem variáveis de estado nas instruções: desligar o template do Agno evita que ele troque $$ por $.
+        resolve_in_context=False,
         # Erros temporários (ex.: 503 "alta demanda") costumam passar em segundos: tenta de novo após 2s e 4s.
         retries=2,
         delay_between_retries=2,

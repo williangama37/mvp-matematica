@@ -22,7 +22,9 @@ class PontoForte(BaseModel):
 class ItemEstudo(BaseModel):
     competencia: str = Field(description='Nome da competência exatamente como recebido.')
     motivo: str = Field(description='Uma frase simples explicando por que vale revisar agora.')
-    como_estudar: str = Field(description='Sugestão prática e específica: o que revisar e que tipo de exercício fazer.')
+    como_estudar: str = Field(
+        description='Por onde começar, a partir dos erros recebidos: o ponto exato a revisar e que tipo de '
+                    'exercício fazer.')
 
 
 class FeedbackGerado(BaseModel):
@@ -51,6 +53,16 @@ INSTRUCOES = [
     'Quando amostra_pequena for verdadeiro, o percentual veio de poucas questões (menos que min_questoes): trate '
     'como um indício, não como conclusão, e não dê peso a grandes variações nessa competência (uma única questão '
     'muda muito o percentual). Ainda assim, mantenha a classificação recebida.',
+    'Cada competência "precisa_estudar" traz em erros as questões que o aluno errou ou deixou em branco: '
+    'enunciado, dificuldade, alternativa marcada, alternativa correta, raciocinio_equivocado (o raciocínio que '
+    'leva àquela alternativa) e tipo_erro (conceitual, procedimental, de cálculo, de interpretação). '
+    'Use esses dados para dizer por onde começar: em motivo, aponte o padrão de erro (ex.: "nas duas questões '
+    'você distribuiu o expoente na soma"); em como_estudar, indique o ponto exato a revisar e um tipo de '
+    'exercício que trabalhe esse erro. Erro conceitual pede rever a ideia antes de praticar; procedimental, '
+    'praticar o passo a passo; de cálculo, refazer conferindo cada conta; de interpretação, reler o enunciado '
+    'e traduzi-lo para a linguagem matemática antes de resolver. Se os erros forem nas questões fáceis, sugira '
+    'começar pela base do assunto. Sem raciocinio_equivocado (ou em branco), compare a alternativa marcada com '
+    'a correta sem afirmar o que o aluno pensou. Não copie o enunciado inteiro; cite só o essencial.',
     'Em como_estudar, seja concreto para o nível de pré-cálculo (ex.: "refaça exercícios de fatoração por '
     'evidência e produtos notáveis, conferindo cada passo"). Se não houver nada a estudar, deixe a_estudar vazio '
     'e sugira como aprofundar nas recomendações.',
@@ -64,6 +76,8 @@ def _criar_agente():
         name='Feedback do aluno',
         model=comum.criar_modelo(),
         instructions=INSTRUCOES,
+        # Sem variáveis de estado nas instruções: desligar o template do Agno evita que ele troque $$ por $.
+        resolve_in_context=False,
         # Erros temporários (ex.: 503 "alta demanda") costumam passar em segundos: tenta de novo após 2s e 4s.
         retries=2,
         delay_between_retries=2,

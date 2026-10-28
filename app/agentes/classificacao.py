@@ -84,14 +84,36 @@ def _historico_por_assunto(tentativa):
     return historico
 
 
+def _erros_por_assunto(tentativa):
+    """{assunto: questões que o aluno errou ou deixou em branco nesta tentativa}, com a alternativa
+    marcada e o raciocínio equivocado que ela representa. É o que permite ao agente apontar por onde
+    começar a estudar dentro do assunto, e não só qual assunto revisar."""
+    erros = {}
+    for resposta in tentativa.respostas:
+        if resposta.correta:
+            continue
+        questao, marcada = resposta.questao, resposta.alternativa
+        erros.setdefault(questao.assunto.nome, []).append({
+            'enunciado': questao.enunciado,
+            'dificuldade': questao.nome_dificuldade,
+            'alternativa_marcada': _texto_alternativa(marcada) if marcada else 'Em branco',
+            'alternativa_correta': _texto_alternativa(questao.alternativa_correta),
+            'raciocinio_equivocado': (marcada.descricao_distrator or '') if marcada else '',
+            'tipo_erro': marcada.nome_tipo_erro if marcada else 'Em branco',
+        })
+    return erros
+
+
 def classificar_tentativa(tentativa):
     """Resumo de uma tentativa: competências classificadas, prioridade de estudo e, em cada uma, o
     histórico do mesmo assunto e a variação em relação à última vez em que ele foi avaliado (mesmo
-    que não tenha caído no teste imediatamente anterior), mais as tentativas anteriores resumidas."""
+    que não tenha caído no teste imediatamente anterior), mais as tentativas anteriores resumidas.
+    As competências a estudar trazem também as questões erradas nesta tentativa."""
     atual = _resumo_tentativa(tentativa)
     anteriores = [_resumo_tentativa(item) for item in
                   estatisticas.tentativas_anteriores(tentativa, limite=MAX_TENTATIVAS_ANTERIORES)]
     historico = _historico_por_assunto(tentativa)
+    erros = _erros_por_assunto(tentativa)
 
     for item in atual['competencias']:
         avaliacoes = historico.get(item['competencia'], [])
@@ -100,6 +122,8 @@ def classificar_tentativa(tentativa):
         item['teste_anterior'] = ultima['teste'] if ultima else None
         item['percentual_anterior'] = ultima['percentual'] if ultima else None
         item['variacao'] = variacao(item['percentual'], ultima['percentual']) if ultima else None
+        if item['classificacao'] == PRECISA_ESTUDAR:
+            item['erros'] = erros.get(item['competencia'], [])
 
     # Prioridade de estudo: menor acerto primeiro; no empate, o que piorou vem antes.
     a_estudar = sorted((item for item in atual['competencias'] if item['classificacao'] == PRECISA_ESTUDAR),
